@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from routers import analytics, clientes, login, servicios, suscripciones, validacion, webhooks
 from tasks.renovacion import verificar_renovaciones_vencidas
@@ -34,6 +35,14 @@ app = FastAPI(
     description="API interna para gestión de clientes, servicios y suscripciones.",
     version="0.2.0",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(analytics.router)
