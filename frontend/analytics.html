@@ -22,8 +22,11 @@
   ════════════════════════════════════════════════════════════════ -->
   <div class="min-h-screen flex">
 
+    <!-- Mobile sidebar backdrop -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-40 hidden lg:hidden"></div>
+
     <!-- SIDEBAR -->
-    <aside class="fixed inset-y-0 left-0 w-60 bg-white border-r border-gray-200 flex flex-col z-40">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 w-60 bg-white border-r border-gray-200 flex flex-col z-50 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out">
       <div class="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
         <a href="index.html" class="flex items-center gap-2.5">
           <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-900">
@@ -91,18 +94,26 @@
     </aside>
 
     <!-- MAIN -->
-    <main class="ml-60 flex-1 flex flex-col min-h-screen">
+    <main class="ml-0 lg:ml-60 flex-1 flex flex-col min-h-screen">
 
       <!-- Header -->
-      <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0 sticky top-0 z-30">
-        <div>
-          <h1 class="text-base font-semibold text-gray-900">Tablero de Servicios</h1>
-          <p class="text-xs text-gray-400 font-light" id="header-subtitle">
-            Métricas de salud y rendimiento de las automatizaciones
-          </p>
+      <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 sm:px-8 shrink-0 sticky top-0 z-30">
+        <div class="flex items-center gap-2 min-w-0">
+          <button id="sidebar-toggle" title="Menú"
+            class="lg:hidden p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"/>
+            </svg>
+          </button>
+          <div class="min-w-0">
+            <h1 class="text-base font-semibold text-gray-900 truncate">Tablero de Servicios</h1>
+            <p class="text-xs text-gray-400 font-light hidden sm:block" id="header-subtitle">
+              Métricas de salud y rendimiento de las automatizaciones
+            </p>
+          </div>
         </div>
         <button id="btn-refresh"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition shrink-0">
           <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
           </svg>
@@ -111,7 +122,7 @@
       </header>
 
       <!-- Grid de tarjetas -->
-      <div class="flex-1 p-8">
+      <div class="flex-1 p-4 sm:p-8">
 
         <!-- Estado de carga -->
         <div id="grid-skeleton" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">

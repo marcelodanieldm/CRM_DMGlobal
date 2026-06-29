@@ -25,7 +25,9 @@
 //   const usuarioActual = Auth.getUser();  // { username, rol }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const usuarioActual = { role: 'soporte' }; // 'admin' | 'soporte'
+const usuarioActual = {
+  role: (typeof SESSION !== 'undefined' && SESSION.esAdmin) ? 'admin' : 'soporte',
+};
 
 /**
  * Deshabilita visualmente el botón "Asignar nuevo servicio".

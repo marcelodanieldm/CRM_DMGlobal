@@ -71,6 +71,23 @@
     }
   });
 
+  // ── Mobile sidebar toggle ─────────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    const toggle  = document.getElementById('sidebar-toggle');
+    if (!sidebar || !toggle) return;
+
+    const open  = () => { sidebar.classList.remove('-translate-x-full'); overlay?.classList.remove('hidden'); document.body.classList.add('overflow-hidden'); };
+    const close = () => { sidebar.classList.add('-translate-x-full');    overlay?.classList.add('hidden');    document.body.classList.remove('overflow-hidden'); };
+
+    toggle.addEventListener('click', open);
+    overlay?.addEventListener('click', close);
+    sidebar.querySelectorAll('a[href]').forEach(a =>
+      a.addEventListener('click', () => { if (window.innerWidth < 1024) close(); })
+    );
+  });
+
   // ── Helpers internos ────────────────────────────────────────────────────────
 
   function _mostrarAccesoDenegado() {
