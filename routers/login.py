@@ -2,11 +2,11 @@
 Endpoints de autenticación — login y utilidades de usuarios internos.
 """
 
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -31,9 +31,41 @@ class TokenResponse(BaseModel):
 
 class UsuarioCreate(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     password: str
     rol: str = "soporte"
+
+    @field_validator("password")
+    @classmethod
+    def validar_password(cls, v: str) -> str:
+        if len(v) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("La contraseña debe contener al menos un número")
+        if not any(c.isupper() for c in v):
+            raise ValueError("La contraseña debe contener al menos una mayúscula")
+        return v
+
+    @field_validator("rol")
+    @classmethod
+    def validar_rol(cls, v: str) -> str:
+        if v not in ("admin", "soporte"):
+            raise ValueError("rol debe ser 'admin' o 'soporte'")
+        return v
+
+
+class UsuarioUpdate(BaseModel):
+    username: Optional[str] = None
+    email: Optional[EmailStr] = None
+    rol: Optional[str] = None
+    activo: Optional[bool] = None
+
+    @field_validator("rol")
+    @classmethod
+    def validar_rol(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in ("admin", "soporte"):
+            raise ValueError("rol debe ser 'admin' o 'soporte'")
+        return v
 
 
 class UsuarioRead(BaseModel):
@@ -115,3 +147,24 @@ def crear_usuario(payload: UsuarioCreate, db: DbDep) -> Usuario:
 def listar_usuarios(db: DbDep) -> list[Usuario]:
     """Lista todos los usuarios internos. Solo accesible para administradores."""
     return list(db.scalars(select(Usuario)).all())
+
+
+@router.put(
+    "/usuarios/{usuario_id}",
+    response_model=UsuarioRead,
+    dependencies=[Depends(require_admin)],
+)
+def actualizar_usuario(usuario_id: int, payload: UsuarioUpdate, db: DbDep) -> Usuario:
+    """Actualiza rol y/o estado de un usuario. Solo administradores."""
+    usuario = db.get(Usuario, usuario_id)
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuario no encontrado",
+        )
+    cambios = payload.model_dump(exclude_unset=True)
+    for campo, valor in cambios.items():
+        setattr(usuario, campo, valor)
+    db.commit()
+    db.refresh(usuario)
+    return usuario

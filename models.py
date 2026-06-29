@@ -26,6 +26,7 @@ class Base(DeclarativeBase):
 
 EstadoGeneral = Enum("activo", "inactivo", name="estado_general")
 TipoEjecucion = Enum("mensual", "por_ejecucion", "anual", name="tipo_ejecucion")
+TipoServicio = Enum("automatizacion", "bot", "scraping", "servicio_comun", name="tipo_servicio")
 EstadoSuscripcion = Enum("activa", "pausada", "desactivada", name="estado_suscripcion")
 PasarelaPago = Enum("mercadopago", "stripe", "manual", name="pasarela_pago")
 RolUsuario = Enum("admin", "soporte", name="rol_usuario")
@@ -71,6 +72,9 @@ class Servicio(Base):
     descripcion: Mapped[Optional[str]] = mapped_column(Text)
     precio_base: Mapped[float] = mapped_column(Float, nullable=False)
     tipo_ejecucion: Mapped[str] = mapped_column(TipoEjecucion, nullable=False)
+    tipo_servicio: Mapped[str] = mapped_column(
+        TipoServicio, nullable=False, default="servicio_comun", server_default="servicio_comun"
+    )
     activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     suscripciones: Mapped[list["Suscripcion"]] = relationship(

@@ -1,6 +1,6 @@
-# CRM DMGlobal — Backend API
+# CRM DMGlobal
 
-API interna para la gestión de clientes, servicios y suscripciones de DM Global. Controla el acceso de bots de scraping, sincroniza estados de pago con MercadoPago y Stripe, y dispara eventos automáticos hacia n8n/Zapier.
+API interna y panel web para la gestión de clientes, servicios y suscripciones de DM Global. Controla el acceso de bots de scraping, sincroniza estados de pago con MercadoPago y Stripe, y dispara eventos automáticos hacia n8n/Zapier.
 
 ---
 
@@ -17,11 +17,14 @@ API interna para la gestión de clientes, servicios y suscripciones de DM Global
 - [Cron Job — Expiración automática](#cron-job--expiración-automática)
 - [Dispatcher de eventos (n8n / Zapier)](#dispatcher-de-eventos-n8n--zapier)
 - [Bots de scraping — Validación de acceso](#bots-de-scraping--validación-de-acceso)
+- [Frontend — Panel de administración](#frontend--panel-de-administración)
 - [Ejecución local](#ejecución-local)
 
 ---
 
 ## Stack tecnológico
+
+### Backend
 
 | Componente | Librería / Versión |
 |---|---|
@@ -35,6 +38,17 @@ API interna para la gestión de clientes, servicios y suscripciones de DM Global
 | Stripe | stripe >= 8.0 |
 | Scheduler | APScheduler >= 3.10 |
 | Entorno | python-dotenv |
+
+### Frontend
+
+| Componente | Tecnología |
+|---|---|
+| Markup | HTML5 semántico, sin bundler |
+| Estilos | Tailwind CSS (CDN) |
+| Tipografía | Inter (Google Fonts) |
+| Lógica | JavaScript Vanilla (ES2021, módulos IIFE) |
+| HTTP | Fetch API nativa con JWT Bearer |
+| Auth | localStorage + RBAC por rol en cada pantalla |
 
 ---
 
@@ -53,6 +67,8 @@ CRM_DMGlobal/
 ├── routers/
 │   ├── clientes.py           # CRUD de Clientes  (/clientes)
 │   ├── servicios.py          # CRUD de Servicios (/api/v1/servicios)
+│   ├── suscripciones.py      # CRUD de Suscripciones (/api/v1/suscripciones)
+│   ├── analytics.py          # Métricas del dashboard (/api/v1/analytics)
 │   ├── webhooks.py           # Ingesta de webhooks MP y Stripe (/webhooks)
 │   ├── validacion.py         # Validación de acceso para bots (/api/v1/validar-acceso)
 │   └── login.py              # Autenticación de usuarios internos (/api/v1/auth)
@@ -64,6 +80,22 @@ CRM_DMGlobal/
 │   ├── bot_guard.py          # Módulo reutilizable de validación para bots externos
 │   ├── ejemplo_bot.py        # Ejemplos de integración (4 patrones)
 │   └── .env.example          # Plantilla de variables de entorno para bots
+│
+├── frontend/                 # Panel web de administración (archivos estáticos)
+│   ├── config.js             # URL base de la API y configuración global
+│   ├── auth-guard.js         # Middleware de sesión y control de roles
+│   ├── index.html            # Dashboard principal (SPA ligero)
+│   ├── dashboard.js          # Métricas, navegación y lógica del dashboard
+│   ├── login.html            # Pantalla de login
+│   ├── login.js              # Flujo OAuth2 → JWT → localStorage
+│   ├── cliente.html          # Ficha detalle de un cliente
+│   ├── cliente.js            # Datos del cliente, suscripciones y auditoría
+│   ├── servicios.html        # Catálogo de servicios (CRUD completo)
+│   ├── servicios.js          # Lógica CRUD del catálogo con panel slide-over
+│   ├── usuarios.html         # Gestión de operadores internos (solo admin)
+│   ├── usuarios.js           # Alta y listado de usuarios del sistema
+│   ├── analytics.html        # Tablero de analítica por servicio
+│   └── analytics.js          # Gráficos y métricas de suscripciones
 │
 └── requirements.txt
 ```
@@ -89,13 +121,17 @@ pip install -r requirements.txt
 cp .env.example .env
 # Editar .env con los valores reales
 
-# 5. Levantar el servidor
+# 5. Inicializar la base de datos con datos de prueba (solo dev)
+python setup_dev.py
+
+# 6. Levantar el servidor
 uvicorn main:app --reload
 ```
 
 Documentación interactiva disponible en:
 - Swagger UI: `http://localhost:8000/docs`
 - Redoc: `http://localhost:8000/redoc`
+- Panel web: `http://localhost:8000/frontend/index.html` (o abrir directamente en el navegador)
 
 ---
 
@@ -150,11 +186,14 @@ BOT_API_KEY=cambiar_por_token_secreto
 | Campo | Tipo | Restricciones |
 |---|---|---|
 | `id` | BigInteger | PK, autoincrement |
-| `nombre` | String(255) | NOT NULL |
+| `nombre` | String(255) | NOT NULL, UNIQUE por negocio |
 | `descripcion` | Text | nullable |
 | `precio_base` | Float | NOT NULL, > 0 |
 | `tipo_ejecucion` | Enum | `mensual` \| `por_ejecucion` \| `anual` |
-| `activo` | Boolean | default True (soft delete) |
+| `tipo_servicio` | Enum | `automatizacion` \| `bot` \| `scraping` \| `servicio_comun` |
+| `activo` | Boolean | default `True` (soft delete) |
+
+> **`tipo_servicio`** clasifica la infraestructura interna que activa cada servicio. Los scripts de Python, n8n y Zapier leen este campo para saber qué tecnología deben encender: clúster de navegadores para `scraping` / `bot`, flujos de APIs para `automatizacion`, o ninguna automatización técnica para `servicio_comun`.
 
 ### `Suscripcion`
 
@@ -233,7 +272,7 @@ No requiere autenticación. Retorna `{"status": "ok"}`.
 
 | Método | Ruta | Acceso | Descripción |
 |---|---|---|---|
-| `GET` | `/api/v1/servicios/` | admin + soporte | Listar servicios activos (default) |
+| `GET` | `/api/v1/servicios/` | admin + soporte | Listar servicios (activos por defecto, `?solo_activos=false` para todos) |
 | `GET` | `/api/v1/servicios/{id}` | admin + soporte | Detalle de servicio — 404 si no existe |
 | `POST` | `/api/v1/servicios/` | admin | Crear servicio — 409 si nombre duplicado |
 | `PUT` | `/api/v1/servicios/{id}` | admin | Actualizar (parcial) — valida nombre único |
@@ -242,6 +281,7 @@ No requiere autenticación. Retorna `{"status": "ok"}`.
 **Validaciones:**
 - `precio_base` debe ser **estrictamente mayor a cero**
 - `tipo_ejecucion`: `mensual` | `por_ejecucion` | `anual`
+- `tipo_servicio`: `automatizacion` | `bot` | `scraping` | `servicio_comun`
 - El `DELETE` es lógico (no borra la fila) para preservar el historial de suscripciones
 
 ---
@@ -494,6 +534,196 @@ CUIT_CLIENTE=20123456789
 
 ---
 
+## Frontend — Panel de administración
+
+El panel es un conjunto de archivos HTML/JS/CSS estáticos ubicados en `frontend/`. No requiere bundler ni servidor de desarrollo propio: se sirven directamente desde FastAPI o cualquier servidor estático, y se comunican con el backend vía Fetch API con JWT.
+
+### Diseño
+
+- Fondo blanco dominante (`bg-white`) con superficie de página en `bg-gray-50`
+- Sidebar fijo de 240 px con marca, navegación y footer de sesión
+- Bordes grises finos (`border-gray-200`) sin sombras agresivas
+- Tipografía Inter en pesos 300 / 400 / 500 / 600
+- Tailwind CSS vía CDN (sin purge — apto para paneles internos de baja escala)
+
+### Archivos y responsabilidades
+
+#### `config.js`
+
+Configuración global del frontend. **Debe cargarse primero en todos los HTML.**
+
+```js
+const CONFIG = {
+  API_BASE_URL: 'http://localhost:8000/api/v1',  // cambiar en producción
+  BOT_API_KEY:  '',
+  ENTORNO:      'desarrollo',  // 'desarrollo' | 'produccion'
+};
+```
+
+| Variable | Uso |
+|---|---|
+| `API_BASE_URL` | Prefijo de todos los `fetch` al backend |
+| `BOT_API_KEY` | Clave para el endpoint `/validar-acceso` si se llama desde el panel |
+| `ENTORNO` | En `desarrollo` habilita fallbacks a datos mock si la API no responde |
+
+---
+
+#### `auth-guard.js`
+
+Middleware de seguridad que **debe cargarse en segundo lugar**, antes de cualquier script de negocio. Protege todas las pantallas internas.
+
+**Comportamiento al cargar:**
+
+1. Si no hay token en `localStorage` → redirige a `login.html` de inmediato (sin flash de contenido).
+2. Con sesión válida → expone `window.SESSION` con token y datos del usuario.
+3. Página marcada como solo-admin + rol soporte → reemplaza el contenido por pantalla de acceso denegado.
+4. Oculta automáticamente todos los elementos `[data-requiere-admin]` si el rol es `soporte`.
+
+**`window.SESSION` expuesto:**
+
+```js
+SESSION.token      // JWT Bearer
+SESSION.user       // objeto completo del usuario
+SESSION.rol        // 'admin' | 'soporte'
+SESSION.username   // string
+SESSION.esAdmin    // boolean
+```
+
+**Páginas registradas como solo-admin:** `usuarios.html`
+
+---
+
+#### `login.html` + `login.js`
+
+Pantalla de autenticación. Si ya existe una sesión activa, redirige a `index.html` sin mostrar el formulario.
+
+**Flujo:**
+1. `POST /api/v1/auth/login` con `application/x-www-form-urlencoded`
+2. El JWT recibido se decodifica en el cliente (sin verificar firma — eso lo hace el servidor en cada request)
+3. Se persisten `dmg_token` y `dmg_user` en `localStorage`
+4. Redirección a `index.html`
+
+---
+
+#### `index.html` + `dashboard.js`
+
+Dashboard principal. SPA ligero con 4 secciones navegables por el sidebar: **Dashboard**, **Clientes** (placeholder), **Catálogo de Servicios** (enlaza a `servicios.html`) y **Auditoría / Logs** (placeholder).
+
+**Sección Dashboard muestra:**
+- Tarjetas de métricas: Total Clientes, Suscripciones Activas, Pausadas, Ingresos Proyectados
+- Tabla de últimos movimientos (audit logs con estado, acción, pasarela y fecha)
+
+**Navegación SPA:** el listener de clicks en `.nav-link` intercepta solo los links con `href="#"`. Los links a páginas reales (como `servicios.html`) se dejan pasar al navegador.
+
+**Carga de datos:** `GET /api/v1/analytics/resumen` para métricas, `GET /api/v1/analytics/movimientos` para la tabla.
+
+---
+
+#### `cliente.html` + `cliente.js`
+
+Ficha detalle de un cliente, accesible vía `cliente.html?id={clienteId}`.
+
+**Secciones:**
+
+| Sección | Contenido |
+|---|---|
+| Datos del cliente | Razón social, CUIT/CUIL, email, teléfono, estado, fecha de alta |
+| Servicios y automatizaciones | Tabla de suscripciones activas con precio, pasarela, estado y fecha de renovación |
+| Historial de auditoría | Acordeón colapsable con todos los AuditLog vinculados al cliente |
+
+**Acciones disponibles:**
+- **Asignar nuevo servicio** → modal con selector de servicio, precio acordado y pasarela de pago (`POST /api/v1/suscripciones/`)
+- **Pausar / Reactivar / Desactivar** suscripción → `PATCH /api/v1/suscripciones/{id}`
+
+**Control de rol:** el botón "Asignar nuevo servicio" lleva `data-requiere-admin` y queda oculto para el rol `soporte`.
+
+---
+
+#### `servicios.html` + `servicios.js`
+
+Gestión completa del catálogo de servicios de DM Global. Accessible desde el sidebar de cualquier pantalla.
+
+**Tabla del catálogo** — columnas:
+
+| Columna | Detalle |
+|---|---|
+| Servicio | Nombre técnico + descripción truncada |
+| Tipo | Badge de color según `tipo_servicio` |
+| Modalidad | Mensual / Anual / Por ejecución |
+| Precio base | Formateado en ARS con `Intl.NumberFormat` |
+| Estado | Badge verde Activo / gris Inactivo |
+| Acciones | Editar + Inactivar (solo admin) |
+
+**Panel slide-over** (derecha de la pantalla, 440 px):
+- Se abre al hacer clic en "Crear Nuevo Servicio" o "Editar"
+- Campos: Nombre técnico, Descripción, Precio base, Modalidad, Tipo de servicio, toggle Activo/Inactivo
+- Validación client-side antes del fetch; errores de la API mostrados inline en el panel
+- Se cierra con el botón X, Escape, o clic en el backdrop
+
+**Tipos de servicio y su significado operativo:**
+
+| Valor | Label | Color | Infra que activa |
+|---|---|---|---|
+| `automatizacion` | Automatización | Azul cielo | Flujos n8n / Zapier entre APIs |
+| `bot` | Bot | Violeta | Scripts de notificación o scraping liviano |
+| `scraping` | Scraping | Ámbar | Clúster de navegadores Playwright / Selenium |
+| `servicio_comun` | Servicio Común | Gris | Sin automatización técnica (servicio manual) |
+
+**Control de rol:**
+- `data-requiere-admin` en el botón "Crear Nuevo Servicio" → oculto para `soporte`
+- Los botones Editar e Inactivar en la tabla se renderizan solo si `SESSION.esAdmin === true`
+- El rol `soporte` puede ver el catálogo completo (activos e inactivos) pero no modificarlo
+
+**Endpoints consumidos:**
+
+```
+GET  /api/v1/servicios/?solo_activos=false&limit=200   → poblar tabla
+POST /api/v1/servicios/                                → crear servicio
+PUT  /api/v1/servicios/{id}                            → editar servicio
+DEL  /api/v1/servicios/{id}                            → inactivar (soft delete)
+```
+
+---
+
+#### `usuarios.html` + `usuarios.js`
+
+Gestión de operadores internos del CRM. **Acceso exclusivo para admin** (auth-guard redirige a soporte si intenta acceder).
+
+**Funcionalidades:**
+- Tabla de usuarios con username, email, rol y estado
+- Modal para registrar nuevo operador (username, email, contraseña, rol)
+- `POST /api/v1/auth/usuarios` para crear, `GET /api/v1/auth/usuarios` para listar
+
+---
+
+#### `analytics.html` + `analytics.js`
+
+Tablero de analítica desglosado por servicio. Muestra distribución de suscripciones, ingresos por servicio y tendencias.
+
+**Endpoints consumidos:** `GET /api/v1/analytics/*`
+
+---
+
+### Orden de carga de scripts (obligatorio)
+
+Todos los HTML internos (excepto `login.html`) deben cargar los scripts en este orden:
+
+```html
+<script src="config.js"></script>      <!-- 1. Configuración global -->
+<script src="auth-guard.js"></script>  <!-- 2. Protección de sesión y roles -->
+<script src="[pagina].js"></script>    <!-- 3. Lógica de negocio de la pantalla -->
+```
+
+### Control de acceso visual por rol
+
+| Mecanismo | Uso |
+|---|---|
+| `data-requiere-admin` en el HTML | auth-guard oculta el elemento si el rol es `soporte` |
+| `SESSION.esAdmin` en el JS | Guards en renderizado dinámico (filas de tabla, botones inline) |
+| `PAGINAS_SOLO_ADMIN` en auth-guard | Redirige y muestra pantalla de "Acceso denegado" para páginas enteras |
+
+---
+
 ## Ejecución local
 
 ```bash
@@ -512,4 +742,15 @@ asyncio.run(verificar_renovaciones_vencidas())
 
 # Generar un hash de contraseña para crear usuarios
 python -c "from auth import hash_password; print(hash_password('mi_contraseña'))"
+
+# Re-crear la base de datos de desarrollo (SQLite)
+# Eliminar el archivo .db existente y luego:
+python setup_dev.py
 ```
+
+### Usuarios de prueba (setup_dev.py)
+
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `admin` | `Admin123` | admin |
+| `soporte` | `Soporte123` | soporte |

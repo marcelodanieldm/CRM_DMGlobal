@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gestión de Usuarios · DM Global</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <style>* { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODAL — Nuevo operador
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="modal-usuario"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4"
+    role="dialog" aria-modal="true">
+
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-900" id="modal-usuario-title">Registrar nuevo operador</h3>
+        <button id="modal-usuario-close"
+          class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="form-usuario" novalidate>
+        <div class="px-6 py-5 space-y-4">
+
+          <div id="campo-username-wrap">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Nombre de usuario</label>
+            <input id="modal-username" type="text" autocomplete="off" required
+              class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition"
+              placeholder="ej: maria.gonzalez" />
+          </div>
+
+          <div id="campo-email-wrap">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Email</label>
+            <input id="modal-email" type="email" autocomplete="off" required
+              class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition"
+              placeholder="maria@dmglobal.com" />
+          </div>
+
+          <div id="campo-password-wrap">
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">
+              Contraseña
+              <span class="text-gray-400 font-light">(mín. 8 chars, 1 mayúscula, 1 número)</span>
+            </label>
+            <input id="modal-password" type="password" autocomplete="new-password"
+              class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition"
+              placeholder="••••••••" />
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1.5">Rol</label>
+            <select id="modal-rol"
+              class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 transition">
+              <option value="soporte">Soporte</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+
+          <p id="modal-usuario-error" class="hidden text-xs text-red-500"></p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+          <button type="button" id="modal-usuario-cancel"
+            class="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+            Cancelar
+          </button>
+          <button type="submit" id="modal-usuario-confirm"
+            class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition disabled:opacity-50">
+            Registrar operador
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="min-h-screen flex">
+
+    <!-- SIDEBAR -->
+    <aside class="fixed inset-y-0 left-0 w-60 bg-white border-r border-gray-200 flex flex-col z-40">
+      <div class="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
+        <a href="index.html" class="flex items-center gap-2.5">
+          <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-900">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z"/>
+            </svg>
+          </span>
+          <span class="text-sm font-semibold text-gray-900 tracking-tight">DM Global</span>
+        </a>
+      </div>
+
+      <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <p class="px-2 mb-2 text-[10px] font-medium text-gray-400 uppercase tracking-widest">Principal</p>
+        <a href="index.html" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-9v9m3-13.5V21M3.75 21h16.5"/></svg>
+          Dashboard
+        </a>
+
+        <p class="px-2 pt-4 pb-2 text-[10px] font-medium text-gray-400 uppercase tracking-widest">Gestión</p>
+        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+          Clientes
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375"/></svg>
+          Catálogo de Servicios
+        </a>
+
+        <p class="px-2 pt-4 pb-2 text-[10px] font-medium text-gray-400 uppercase tracking-widest">Sistema</p>
+        <a href="usuarios.html" class="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-50 text-sm text-gray-900 font-medium transition-colors">
+          <svg class="w-4 h-4 text-gray-700 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
+          Usuarios del Sistema
+        </a>
+        <a href="#" class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75"/></svg>
+          Auditoría / Logs
+        </a>
+      </nav>
+
+      <div class="border-t border-gray-200 px-4 py-3 shrink-0">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-medium shrink-0" id="sidebar-avatar">A</span>
+            <div class="min-w-0">
+              <p class="text-xs font-medium text-gray-900 truncate" id="sidebar-username">—</p>
+              <p class="text-[10px] text-gray-400 truncate" id="sidebar-rol">—</p>
+            </div>
+          </div>
+          <button id="logout-btn" title="Cerrar sesión"
+            class="p-1.5 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="ml-60 flex-1 flex flex-col min-h-screen">
+
+      <!-- Header -->
+      <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0 sticky top-0 z-30">
+        <div>
+          <h1 class="text-base font-semibold text-gray-900">Gestión de usuarios</h1>
+          <p class="text-xs text-gray-400 font-light">Staff con acceso a la intranet</p>
+        </div>
+        <button id="btn-nuevo-usuario"
+          class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          Nuevo operador
+        </button>
+      </header>
+
+      <!-- Contenido -->
+      <div class="flex-1 p-8">
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+
+          <!-- Tabla de usuarios -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 border-b border-gray-100">
+                  <th class="px-6 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Usuario</th>
+                  <th class="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Email</th>
+                  <th class="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Rol</th>
+                  <th class="px-4 py-3 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
+                  <th class="px-4 py-3 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-usuarios" class="divide-y divide-gray-50">
+                <tr>
+                  <td colspan="5" class="px-6 py-10 text-center text-sm text-gray-400">
+                    <div class="animate-spin w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full mx-auto mb-2"></div>
+                    Cargando usuarios...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="usuarios.js"></script>
+</body>
+</html>

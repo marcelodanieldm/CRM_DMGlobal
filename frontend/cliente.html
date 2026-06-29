@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ficha de Cliente · DM Global</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    .font-mono-custom { font-family: 'JetBrains Mono', monospace; }
+    .nav-link.active { background-color: #f9fafb; color: #111827; font-weight: 500; }
+    .nav-link.active .nav-icon { color: #111827; }
+
+    /* Acordeón <details> nativo */
+    details summary { list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details[open] .summary-chevron { transform: rotate(90deg); }
+    .summary-chevron { transition: transform 180ms ease; }
+
+    /* Toast */
+    #toast { transition: opacity 300ms ease, transform 300ms ease; }
+    #toast.hide { opacity: 0; transform: translateY(8px); pointer-events: none; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       MODAL — Asignar Nuevo Servicio
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="modal-asignar"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm p-4"
+    role="dialog" aria-modal="true" aria-labelledby="modal-title">
+
+    <div class="bg-white border border-gray-200 rounded-2xl shadow-xl w-full max-w-md">
+      <!-- Header modal -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <h3 id="modal-title" class="text-sm font-semibold text-gray-900">Asignar nuevo servicio</h3>
+        <button id="modal-close-btn" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Body modal -->
+      <div class="px-6 py-5 space-y-4">
+        <!-- Selector de servicio -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Servicio</label>
+          <select id="modal-servicio"
+            class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition">
+            <option value="">Seleccionar servicio...</option>
+          </select>
+        </div>
+
+        <!-- Precio base del servicio (readonly) -->
+        <div id="modal-precio-base-row" class="hidden">
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Precio de lista</label>
+          <p class="text-sm text-gray-400 font-mono-custom" id="modal-precio-base-label">—</p>
+        </div>
+
+        <!-- Precio acordado (opcional) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">
+            Precio acordado
+            <span class="text-gray-400 font-light">(dejar vacío para usar el precio de lista)</span>
+          </label>
+          <input id="modal-precio-acordado" type="number" min="1" step="100" placeholder="ej: 125000"
+            class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-900 transition" />
+        </div>
+
+        <!-- Pasarela de pago -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1.5">Pasarela de pago</label>
+          <select id="modal-pasarela"
+            class="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 transition">
+            <option value="stripe">Stripe</option>
+            <option value="mercadopago">MercadoPago</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+
+        <p id="modal-error" class="hidden text-xs text-red-500"></p>
+      </div>
+
+      <!-- Footer modal -->
+      <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-gray-100">
+        <button id="modal-cancel-btn"
+          class="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+          Cancelar
+        </button>
+        <button id="modal-confirm-btn"
+          class="px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-lg hover:bg-gray-800 transition disabled:opacity-50">
+          Asignar servicio
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       TOAST de confirmación
+  ════════════════════════════════════════════════════════════════ -->
+  <div id="toast"
+    class="hide fixed bottom-6 right-6 z-50 flex items-center gap-3 bg-gray-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg max-w-xs">
+    <span id="toast-icon" class="shrink-0"></span>
+    <span id="toast-msg"></span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       APP PRINCIPAL
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="min-h-screen flex">
+
+    <!-- ─── SIDEBAR (idéntico al index.html) ──────────────────── -->
+    <aside class="fixed inset-y-0 left-0 w-60 bg-white border-r border-gray-200 flex flex-col z-40">
+      <div class="h-16 flex items-center px-5 border-b border-gray-200 shrink-0">
+        <a href="index.html" class="flex items-center gap-2.5">
+          <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-900">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25z"/>
+            </svg>
+          </span>
+          <span class="text-sm font-semibold text-gray-900 tracking-tight">DM Global</span>
+        </a>
+      </div>
+
+      <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+        <p class="px-2 mb-2 text-[10px] font-medium text-gray-400 uppercase tracking-widest">Principal</p>
+        <a href="index.html" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="nav-icon w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 14.25v2.25m3-4.5v4.5m3-9v9m3-13.5V21M3.75 21h16.5"/></svg>
+          Dashboard
+        </a>
+
+        <p class="px-2 pt-4 pb-2 text-[10px] font-medium text-gray-400 uppercase tracking-widest">Gestión</p>
+        <a href="#" class="nav-link active flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="nav-icon w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+          Clientes
+        </a>
+        <a href="#" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="nav-icon w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375"/></svg>
+          Catálogo de Servicios
+        </a>
+
+        <p class="px-2 pt-4 pb-2 text-[10px] font-medium text-gray-400 uppercase tracking-widest">Sistema</p>
+        <a href="#" class="nav-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors">
+          <svg class="nav-icon w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75"/></svg>
+          Auditoría / Logs
+        </a>
+      </nav>
+
+      <div class="border-t border-gray-200 px-4 py-3 shrink-0">
+        <div class="flex items-center gap-2.5">
+          <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-medium shrink-0">A</span>
+          <div class="min-w-0">
+            <p class="text-xs font-medium text-gray-900 truncate">admin</p>
+            <p class="text-[10px] text-gray-400">Administrador</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── MAIN ───────────────────────────────────────────────── -->
+    <main class="ml-60 flex-1 flex flex-col min-h-screen">
+
+      <!-- Header -->
+      <header class="h-16 bg-white border-b border-gray-200 flex items-center gap-3 px-8 shrink-0 sticky top-0 z-30">
+        <a href="index.html" class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+          </svg>
+        </a>
+        <div class="h-4 w-px bg-gray-200"></div>
+        <nav class="flex items-center gap-1 text-sm text-gray-400">
+          <a href="index.html" class="hover:text-gray-700 transition">Dashboard</a>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+          <span class="text-gray-500">Clientes</span>
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
+          <span class="text-gray-900 font-medium truncate max-w-[200px]" id="breadcrumb-nombre">Cargando...</span>
+        </nav>
+      </header>
+
+      <!-- Contenido -->
+      <div class="flex-1 p-8">
+        <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+
+          <!-- ══ SECCIÓN 1: Datos del Cliente ════════════════════ -->
+          <div id="section-cliente" class="px-8 py-7">
+            <!-- JS inserta el contenido aquí -->
+            <div class="animate-pulse space-y-3">
+              <div class="h-6 bg-gray-100 rounded w-64"></div>
+              <div class="h-4 bg-gray-100 rounded w-40"></div>
+              <div class="h-4 bg-gray-100 rounded w-52"></div>
+            </div>
+          </div>
+
+          <!-- Divisor -->
+          <div class="border-t border-gray-100"></div>
+
+          <!-- ══ SECCIÓN 2: Servicios y Automatizaciones ══════════ -->
+          <div id="section-servicios" class="px-8 py-6">
+            <!-- Header de la sección -->
+            <div class="flex items-center justify-between mb-5">
+              <div>
+                <h2 class="text-sm font-semibold text-gray-900">Servicios y automatizaciones</h2>
+                <p class="text-xs text-gray-400 font-light mt-0.5">Contratos activos del cliente</p>
+              </div>
+              <button id="btn-asignar-servicio"
+                class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+                </svg>
+                Asignar nuevo servicio
+              </button>
+            </div>
+
+            <!-- Tabla de servicios -->
+            <div class="overflow-x-auto -mx-1">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-gray-100">
+                    <th class="px-3 pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Servicio</th>
+                    <th class="px-3 pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Modalidad</th>
+                    <th class="px-3 pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Precio facturado</th>
+                    <th class="px-3 pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Pasarela</th>
+                    <th class="px-3 pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Estado</th>
+                    <th class="px-3 pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Próxima renovación</th>
+                    <th class="px-3 pb-2.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-servicios" class="divide-y divide-gray-50">
+                  <tr>
+                    <td colspan="7" class="px-3 py-8 text-center text-sm text-gray-400">
+                      <div class="animate-spin w-4 h-4 border-2 border-gray-200 border-t-gray-400 rounded-full mx-auto mb-2"></div>
+                      Cargando servicios...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Divisor -->
+          <div class="border-t border-gray-100"></div>
+
+          <!-- ══ SECCIÓN 3: Historial de Auditoría ════════════════ -->
+          <details id="section-auditoria" class="group">
+            <summary class="flex items-center justify-between px-8 py-5 cursor-pointer select-none hover:bg-gray-50/60 transition-colors">
+              <div class="flex items-center gap-3">
+                <svg class="summary-chevron w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+                </svg>
+                <div>
+                  <span class="text-sm font-semibold text-gray-900">Historial de auditoría</span>
+                  <span class="ml-2 text-xs text-gray-400" id="audit-count"></span>
+                </div>
+              </div>
+              <span class="text-[10px] text-gray-400 font-light">Click para expandir</span>
+            </summary>
+
+            <!-- Contenido del acordeón -->
+            <div class="border-t border-gray-100 px-8 pb-6 pt-4 overflow-x-auto">
+              <table class="w-full text-xs font-mono-custom" id="tabla-auditoria">
+                <thead>
+                  <tr class="border-b border-gray-100">
+                    <th class="pb-2.5 pr-6 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Timestamp</th>
+                    <th class="pb-2.5 pr-6 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Operador</th>
+                    <th class="pb-2.5 pr-6 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">Acción</th>
+                    <th class="pb-2.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Detalles del cambio</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody-auditoria" class="divide-y divide-gray-50">
+                  <!-- JS inserta las filas -->
+                </tbody>
+              </table>
+            </div>
+          </details>
+
+        </div><!-- /card -->
+      </div><!-- /p-8 -->
+    </main>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="cliente.js"></script>
+</body>
+</html>

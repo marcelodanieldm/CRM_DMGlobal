@@ -5,7 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 
-from routers import clientes, login, servicios, validacion, webhooks
+from routers import analytics, clientes, login, servicios, suscripciones, validacion, webhooks
 from tasks.renovacion import verificar_renovaciones_vencidas
 
 logger = logging.getLogger(__name__)
@@ -36,8 +36,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.include_router(analytics.router)
 app.include_router(clientes.router)
 app.include_router(servicios.router)
+app.include_router(suscripciones.router)
 app.include_router(webhooks.router)
 app.include_router(validacion.router)
 app.include_router(login.router)

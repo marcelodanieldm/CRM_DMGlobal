@@ -9,7 +9,7 @@ from database import get_db
 from models import Cliente
 from schemas import ClienteCreate, ClienteRead, ClienteUpdate
 
-router = APIRouter(prefix="/clientes", tags=["clientes"])
+router = APIRouter(prefix="/api/v1/clientes", tags=["clientes"])
 
 DbDep = Annotated[Session, Depends(get_db)]
 
