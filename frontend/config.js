@@ -16,7 +16,7 @@ const CONFIG = Object.freeze({
   // URL base del backend FastAPI (sin barra final).
   // Todos los paths de fetch son relativos a este origen.
   // Ejemplo producción: 'https://api.dmglobal.com/api/v1'
-  API_BASE_URL: 'http://localhost:8000/api/v1',
+  API_BASE_URL: 'http://localhost:8001/api/v1',
 
   // Token para el endpoint de validación de acceso de bots internos.
   // Solo necesario si algún componente del panel llama a /validar-acceso.

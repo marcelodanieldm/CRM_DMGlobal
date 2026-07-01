@@ -5,8 +5,20 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqladmin import Admin
 
-from routers import analytics, clientes, login, servicios, suscripciones, validacion, webhooks
+import admin as admin_feedback
+from database import engine
+from routers import (
+    analytics,
+    clientes,
+    login,
+    servicio_feedback,
+    servicios,
+    suscripciones,
+    validacion,
+    webhooks,
+)
 from tasks.renovacion import verificar_renovaciones_vencidas
 
 logger = logging.getLogger(__name__)
@@ -52,6 +64,11 @@ app.include_router(suscripciones.router)
 app.include_router(webhooks.router)
 app.include_router(validacion.router)
 app.include_router(login.router)
+app.include_router(servicio_feedback.router)
+
+# Panel admin del Add-on "Servicio de Feedback" (sqladmin), montado en /admin.
+admin = Admin(app, engine, authentication_backend=admin_feedback.crear_auth_backend())
+admin_feedback.registrar(admin)
 
 
 @app.get("/health", tags=["infra"])

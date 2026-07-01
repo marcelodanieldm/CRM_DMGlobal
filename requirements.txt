@@ -10,3 +10,7 @@ python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 apscheduler>=3.10.0
 python-multipart>=0.0.9
+# Tope <0.27: desde esa versión sqladmin exige starlette>=0.50, incompatible
+# con el starlette<0.39 que pide fastapi>=0.115.0 acá arriba.
+sqladmin>=0.16.1,<0.27
+itsdangerous>=2.1.0
