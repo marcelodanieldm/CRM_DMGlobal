@@ -14,3 +14,9 @@ python-multipart>=0.0.9
 # con el starlette<0.39 que pide fastapi>=0.115.0 acá arriba.
 sqladmin>=0.16.1,<0.27
 itsdangerous>=2.1.0
+
+# ── Recepcionista Virtual Nocturno ───────────────────────────────────────────
+google-genai>=1.0.0          # SDK oficial de Gemini Flash (async nativo)
+pypdf>=4.0.0                 # Extracción de texto de PDFs sin costo
+pydantic-settings>=2.0.0    # Carga tipada de variables de entorno
+google-auth>=2.0.0           # Autenticación con Google Drive API (service account)
