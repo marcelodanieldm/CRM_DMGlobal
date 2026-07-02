@@ -1,5 +1,5 @@
 """
-Sheets Service — Recepcionista Virtual Nocturno.
+Sheets Service — Recepcionista Virtual.
 
 Gestiona la máquina de estados del ciclo de vida del huésped a través de
 Google Sheets como backend de datos operativo.
@@ -89,7 +89,7 @@ class ContextoChat(str, Enum):
 
 
 # Valores válidos de idioma (col I)
-IDIOMAS_VALIDOS: frozenset[str] = frozenset({"es", "en", "pt"})
+IDIOMAS_VALIDOS: frozenset[str] = frozenset({"es", "en", "pt", "fr", "de"})
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Mapeo de columnas (índices 0-based para listas de Python)

@@ -1,5 +1,5 @@
 """
-AI Service — Recepcionista Virtual Nocturno.
+AI Service — Recepcionista Virtual.
 
 SDK:
     Se usa ``google-genai`` (el SDK oficial moderno de Google Gemini) en lugar
@@ -57,7 +57,7 @@ EMERGENCIA_TAG: str = "[EMERGENCIA]"
 # Instrucción de sistema exacta especificada en el diseño del producto.
 # {hotel_context} se sustituye en runtime con el texto extraído del PDF.
 _SYSTEM_INSTRUCTION_TEMPLATE: str = """\
-Eres el recepcionista virtual nocturno del hotel. Tu único objetivo es responder \
+Eres el recepcionista virtual del hotel. Tu único objetivo es responder \
 de forma amable y concisa a las dudas del huésped basándote EXCLUSIVAMENTE en el \
 CONTEXTO provisto.
 

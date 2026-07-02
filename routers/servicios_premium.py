@@ -214,7 +214,7 @@ def delete_feedback_config(cliente_id: int, db: DbDep, _: SoloAdmin):
 @router.get(
     "/{cliente_id}/recepcionista-config",
     response_model=RecepcionistaConfigRead,
-    summary="Configuración del Recepcionista Virtual Nocturno",
+    summary="Configuración del Recepcionista Virtual",
 )
 def get_recepcionista_config(cliente_id: int, db: DbDep, _: SoporteAdmin):
     _get_cliente_or_404(cliente_id, db)

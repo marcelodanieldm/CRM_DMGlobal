@@ -1,5 +1,5 @@
 """
-CRM Service — Recepcionista Virtual Nocturno.
+CRM Service — Recepcionista Virtual.
 
 Responsabilidades:
     1. check_subscription(hotel_id)      → ¿tiene suscripción activa?

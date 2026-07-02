@@ -1,8 +1,8 @@
-# Recepcionista Virtual Nocturno — DM Global
+# Recepcionista Virtual — DM Global
 
 Módulo asíncrono integrado al CRM FastAPI de DM Global que convierte WhatsApp Business en un **agente de atención 24/7** para hoteles, agencias de excursiones, servicios de traslado y alquiler de vehículos.
 
-Opera de forma completamente autónoma durante la noche gestionando el ciclo de vida completo del huésped: desde el pre-check-in hasta el check-out, pasando por soporte, tickets e informes semanales.
+Gestiona de forma autónoma el ciclo de vida completo del huésped: pre-check-in → check-in → estadía (soporte, tickets, late checkout) → check-out, en cinco idiomas.
 
 ---
 
@@ -10,14 +10,14 @@ Opera de forma completamente autónoma durante la noche gestionando el ciclo de 
 
 - [Arquitectura](#arquitectura)
 - [Stack tecnológico](#stack-tecnológico)
-- [Instalación](#instalación)
-- [Variables de entorno](#variables-de-entorno)
-- [Estructura de archivos](#estructura-de-archivos)
+- [Reglas de negocio](#reglas-de-negocio)
+- [Flujos principales](#flujos-principales)
 - [Árbol de decisión del webhook](#árbol-de-decisión-del-webhook)
 - [Máquina de estados del huésped](#máquina-de-estados-del-huésped)
 - [Google Sheets — Layout de columnas](#google-sheets--layout-de-columnas)
 - [API Endpoints](#api-endpoints)
-- [Google Apps Scripts](#google-apps-scripts)
+- [Instalación y variables de entorno](#instalación-y-variables-de-entorno)
+- [Estructura de archivos](#estructura-de-archivos)
 - [Seguridad](#seguridad)
 
 ---
@@ -29,16 +29,16 @@ Huésped
   │  WhatsApp
   ▼
 Meta Cloud API ──► POST /api/v1/recepcionista/whatsapp/webhook
-                          │
+                          │  HTTP 200 inmediato (< 15s)
                     BackgroundTask
                           │
               ┌─────────────────────────┐
               │   _procesar_mensaje()   │ ← pipeline unificado
               │                         │
-              │  Filtro 0: Idioma       │─► Google Sheets (col I)
-              │  Filtro 1: Suscripción  │─► CRM DM Global API
-              │  Filtro 2: Contexto     │─► Google Sheets (col K)
-              │  Filtro 3: Fase estadía │─► Gemini Flash + Drive PDF
+              │  Filtro 0: Idioma       │──► Google Sheets (col I)
+              │  Filtro 1: Suscripción  │──► CRM DM Global API
+              │  Filtro 2: Contexto     │──► Google Sheets (col K)
+              │  Filtro 3: Fase estadía │──► Gemini Flash + Drive PDF
               └─────────────────────────┘
                           │
                     WhatsApp Cloud API
@@ -47,13 +47,14 @@ Meta Cloud API ──► POST /api/v1/recepcionista/whatsapp/webhook
 ```
 
 **Servicios externos consumidos:**
+
 | Servicio | Propósito | Autenticación |
 |---|---|---|
 | Meta WhatsApp Cloud API | Recibir y enviar mensajes | `WHATSAPP_ACCESS_TOKEN` |
 | Google Gemini Flash | Generar respuestas IA | `GEMINI_API_KEY` |
-| Google Sheets API v4 | Estado del huésped | Service Account JSON |
+| Google Sheets API v4 | Estado y datos del huésped | Service Account JSON |
 | Google Drive API v3 | PDF de reglas del hotel | Service Account JSON |
-| CRM DM Global (FastAPI interno) | Validar suscripción | `CRM_DM_GLOBAL_API_KEY` |
+| CRM DM Global (FastAPI interno) | Validar suscripción activa | `CRM_DM_GLOBAL_API_KEY` |
 
 ---
 
@@ -62,90 +63,213 @@ Meta Cloud API ──► POST /api/v1/recepcionista/whatsapp/webhook
 | Capa | Tecnología |
 |---|---|
 | Framework | FastAPI (async), Python 3.11+ |
-| IA | Google Gemini Flash (`google-genai>=1.0.0`) |
-| PDF | `pypdf>=4.0.0` (local, sin costo) |
+| IA | Google Gemini Flash 1.5 (`google-genai>=1.0.0`, async nativo) |
+| PDF | `pypdf>=4.0.0` (local, sin costo de API) |
 | HTTP | `httpx` async (Meta API, CRM) |
 | Config | `pydantic-settings>=2.0.0` |
 | Autenticación Google | `google-auth>=2.0.0` (service account) |
+| Scheduler | APScheduler (limpieza horaria de sesiones expiradas) |
+
+**Parámetros de Gemini Flash:**
+
+| Parámetro | Valor | Razón |
+|---|---|---|
+| Modelo | `gemini-1.5-flash` | Velocidad + costo bajo |
+| Temperature | `0.3` | Respuestas factuales, no creativas |
+| Max output tokens | `350` | Apropiado para mensajes WhatsApp |
+| Contexto | PDF del hotel inyectado en system prompt | Solo responde con info real |
 
 ---
 
-## Instalación
+## Reglas de negocio
 
-```bash
-# Dentro del proyecto CRM DMGlobal FastAPI
-pip install -r requirements.txt
+### Lo que puede hacer el Recepcionista Virtual
 
-# Configurar variables de entorno
-cp .env.example .env
-# Editar .env con las claves reales
+| Capacidad | Descripción |
+|---|---|
+| Pre-check-in | Detecta huéspedes sin DNI/pasaporte cargado y los dirige al formulario |
+| Check-in autónomo | Detecta intención de llegada y envía PIN + habitación + link Drive |
+| WiFi | Extrae contraseña del PDF del hotel y la envía |
+| Amenities extras | Solicita descripción y registra ticket en Sheets |
+| Reporte de incidente | Clasifica el problema (normal / emergencia) y registra ticket |
+| Late checkout | Extrae política del PDF, solicita confirmación y registra ticket |
+| Check-out | Envía instrucciones extraídas del PDF y actualiza estado |
+| Detección de emergencias | Dos capas: keywords locales + clasificación semántica de Gemini |
+| Multilenguaje | Español, inglés, portugués, francés y alemán (selección por menú interactivo) |
+| Consulta general | IA con contexto del hotel para cualquier pregunta no clasificada |
 
-# Copiar credenciales de Google Cloud
-cp /ruta/a/tu/service-account.json google-credentials.json
+### Lo que NO puede hacer
+
+| Limitación | Motivo |
+|---|---|
+| Modificar o cancelar reservas | Sin integración con PMS / channel manager |
+| Procesar pagos o cobrar extras | Sin pasarela de pago conectada |
+| Hacer llamadas telefónicas | Solo canal WhatsApp |
+| Escalar a un agente humano en tiempo real | Solo registra ticket y loggea warning |
+| Responder con info no incluida en el PDF del hotel | Informa amablemente que el staff atenderá la consulta |
+
+---
+
+### Validación de suscripción
+
+Antes de procesar **cualquier mensaje**, el bot valida que el hotel tiene suscripción activa:
+
+```
+check_subscription(hotel_id)  →  GET {CRM_URL}/subscriptions/{hotel_id}
 ```
 
-El módulo se monta automáticamente al arrancar FastAPI vía `main.py`:
-```python
-from virtual_receptionist.routers.whatsapp import router as whatsapp_router
-app.include_router(whatsapp_router)
+| Resultado del CRM | Acción |
+|---|---|
+| `status: active` o `paid` | Procesar mensaje normalmente |
+| `status` distinto (inactivo/suspendido) | Ignorar mensaje en silencio (sin respuesta al huésped) |
+| `404 Not Found` (hotel no existe) | Ignorar mensaje en silencio |
+| Error de red / timeout | **Fail-open:** procesar igual (el huésped no queda sin ayuda) |
+
+> El fail-open es intencional: una caída temporal del CRM no debe dejar a los huéspedes sin atención.
+
+---
+
+### Idiomas soportados
+
+El idioma del huésped se guarda en la columna I de Sheets (`es` / `en` / `pt` / `fr` / `de`).
+
+**Selección de idioma (Filtro 0):**
+1. Si la columna I está vacía → el bot envía un menú interactivo con los 5 idiomas.
+2. El huésped selecciona → el idioma se guarda en Sheets y persiste durante toda la estadía.
+3. Todos los mensajes posteriores del bot (menús, confirmaciones, alertas) se envían en el idioma elegido.
+
+**Idiomas disponibles:**
+
+| Código | Idioma | Botón en menú |
+|---|---|---|
+| `es` | Español | 🇦🇷 Español |
+| `en` | English | 🇺🇸 English |
+| `pt` | Português | 🇧🇷 Português |
+| `fr` | Français | 🇫🇷 Français |
+| `de` | Deutsch | 🇩🇪 Deutsch |
+
+La IA (Gemini) responde en el idioma del contexto del huésped de forma automática, ya que el mensaje del huésped ya viene en su idioma.
+
+---
+
+### Gestión de emergencias
+
+La detección corre en dos capas secuenciales:
+
+**Capa 1 — Keywords locales (< 1 ms, sin llamada a la API):**
+Palabras clave como `inundación`, `fuga gas`, `incendio`, `corte de luz`, `emergencia médica` en todos los idiomas.
+
+**Capa 2 — Clasificación semántica de Gemini:**
+Para casos ambiguos (ej. "el baño está haciendo ruido raro"), Gemini clasifica si es emergencia o incidente normal.
+
+**Acción ante emergencia:**
+1. El bot responde al huésped con instrucciones de calma y números de emergencia (911/15/17/18/110/112 según idioma).
+2. Se registra un ticket con `Tipo = EMERGENCIA` en la pestaña `Tickets_Soporte` de Sheets.
+3. Se emite `logging.warning("DISPARAR ALERTA TWILIO/TELEGRAM | ...")` para notificación al administrador.
+
+> Las alertas automáticas (Twilio/Telegram) están marcadas como `TODO producción`. Actualmente solo se loggea y se registra el ticket.
+
+---
+
+### Flujo de Late Checkout
+
+```
+Huésped escribe intención de late checkout (en cualquier idioma)
+                    │
+    detectar_intencion_late_checkout(texto, idioma)
+                    │ True
+    Gemini extrae política de late checkout del PDF del hotel
+                    │
+    Bot envía política + pregunta de confirmación
+    ("¿Deseas solicitarlo? Respondé sí/no")
+                    │
+    contexto → AWAITING_LATE_CHECKOUT_CONFIRM
+                    │
+         ┌──────────┴──────────┐
+     sí / oui / ja        no / non / nein
+         │                     │
+    Registra ticket         Cancela
+    LATE_CHECKOUT en        (mensaje estándar)
+    Tickets_Soporte
+         │
+    "Solicitud enviada al administrador.
+     Te confirmaremos a la brevedad."
 ```
 
 ---
 
-## Variables de entorno
+### Gestión de sesiones IA
 
-Todas se definen en `.env` (ver `.env.example` para el template completo):
-
-```env
-# CRM interno
-CRM_DM_GLOBAL_API_URL=http://localhost:8001
-CRM_DM_GLOBAL_API_KEY=
-CRM_HOTEL_ID=HOTEL-NOMBRE-01
-
-# Gemini Flash
-GEMINI_API_KEY=
-
-# Google Drive (PDF de reglas del hotel)
-GOOGLE_DRIVE_FILE_ID=         # ID del PDF principal
-GOOGLE_SERVICE_ACCOUNT_FILE=google-credentials.json
-
-# Google Sheets (estado de huéspedes)
-GOOGLE_SHEETS_ID=
-GOOGLE_SHEETS_TAB=Huéspedes
-
-# WhatsApp Business (Meta)
-WHATSAPP_VERIFY_TOKEN=
-WHATSAPP_ACCESS_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
-
-# Pre-check-in
-PRECHECKIN_FORM_URL=https://tu-crm.com/precheckin/
-
-# Comportamiento
-RECEPTIONIST_BUSINESS_NAME=Hotel DM Global
-RECEPTIONIST_DEFAULT_LANG=es
-RECEPTIONIST_MAX_HISTORY=10
-RECEPTIONIST_SESSION_TTL_MINUTES=60
-```
+- Sesiones en memoria (dict global por número WhatsApp).
+- TTL: `RECEPTIONIST_SESSION_TTL_MINUTES` (default: 60 minutos).
+- Historial máximo: `RECEPTIONIST_MAX_HISTORY` turnos (default: 10).
+- Limpieza automática: cron horario vía APScheduler.
+- Las sesiones son independientes del estado en Sheets; Sheets es la fuente de verdad del ciclo de vida del huésped.
 
 ---
 
-## Estructura de archivos
+## Flujos principales
+
+### Flujo 1 — Pre-check-in
 
 ```
-virtual_receptionist/
-│
-├── config.py                   ← Settings (pydantic-settings, .env)
-│
-├── routers/
-│   └── whatsapp.py             ← Endpoints GET/POST /webhook + pipeline unificado
-│
-└── services/
-    ├── ai_service.py           ← Gemini Flash: generate_response, clasificar_ticket
-    ├── crm_service.py          ← CRM DM Global: check_subscription, obtener_contexto
-    ├── drive_service.py        ← Google Drive: get_hotel_rules (PDF → texto, caché 1h)
-    ├── sheets_service.py       ← Google Sheets: get/update estado del huésped
-    └── whatsapp_service.py     ← Constructores de mensajes y envíos a Meta API
+Huésped con estado RESERVADO escribe cualquier mensaje
+                    │
+    ¿col G (Pre-CheckIn) == "SÍ"?
+         │ NO
+         ▼
+    Bot envía link al formulario de pre-check-in
+    contexto → AWAITING_DNI
+         │
+    Huésped escribe mientras tanto → bot reitera el link
+         │
+    Huésped completa el formulario externamente
+    (actualiza col G = "SÍ" vía Google Apps Script)
+         │
+    Próximo mensaje: reconoce estado RESERVADO + pre_ci=True
+    → Filtro 3a: esperar intención de llegada
+```
+
+### Flujo 2 — Check-in autónomo
+
+```
+Huésped con estado RESERVADO + pre_ci=True escribe
+"ya llegué" / "I'm here" / "je suis arrivé" / "ich bin da" / etc.
+                    │
+    detectar_intencion_llegada(texto, idioma) → True
+                    │
+    Parallel: update col J = CHECKED_IN + update col K = NORMAL
+                    │
+    Bot envía:
+    ✅ Bienvenido/a, {nombre}!
+    🚪 Habitación: {habitacion}
+    🔑 PIN de acceso: {pin}
+    📍 Mapa e instrucciones: {drive_url}  ← si hay carpeta en col H
+```
+
+### Flujo 3 — Soporte durante estadía (CHECKED_IN)
+
+Sin texto ni botón específico → bot envía menú interactivo de estadía:
+
+| Opción | Acción |
+|---|---|
+| 📶 Wi-Fi | Gemini extrae contraseña del PDF → envía al huésped |
+| 🛏️ Amenities | Bot solicita descripción → registra ticket NORMAL |
+| 🛠️ Incidente | Bot solicita descripción → clasifica (normal/emergencia) → registra ticket |
+| ❓ Consulta | Gemini con contexto PDF + datos del huésped → respuesta libre |
+
+### Flujo 4 — Check-out
+
+```
+Huésped escribe intención de checkout (en cualquier idioma)
+                    │
+    Gemini extrae instrucciones de check-out del PDF
+                    │
+    Bot envía instrucciones completas (qué apagar, dónde dejar llave, etc.)
+                    │
+    update col J = CHECKED_OUT
+                    │
+    Bot envía mensaje de despedida + link de reseña Google (si configurado)
 ```
 
 ---
@@ -157,37 +281,36 @@ El endpoint `POST /webhook` siempre retorna **HTTP 200 inmediatamente** a Meta, 
 ```
 _procesar_mensaje(numero_wa, texto, phone_number_id, button_id)
 │
-├─ get_guest_state(numero_wa)          → Google Sheets
-│    └─ None → _flujo_ia_general()
+├─ get_guest_state(numero_wa)              → Google Sheets lookup por col B
+│    └─ None → _flujo_ia_general()         ← huésped no en Sheets
 │
-├─ FILTRO 0: Idioma
-│    ├─ idioma vacío → enviar_menu_idioma()         ← lista interactiva es/en/pt
-│    └─ botón lang_es/en/pt → update_guest_idioma() + bienvenida
+├─ FILTRO 0: Idioma (col I vacía)
+│    ├─ button_id in {lang_es,en,pt,fr,de} → guardar + bienvenida + menú fase
+│    └─ vacío → enviar_menu_idioma()        ← lista interactiva 5 idiomas
 │
 ├─ FILTRO 1: Suscripción
-│    └─ check_subscription(hotel_id)   → CRM DM Global
-│         └─ False → return silencioso
+│    └─ check_subscription(hotel_id) == False → return silencioso
 │
-├─ FILTRO 2: Contexto temporal (col K del Sheets)
-│    ├─ AWAITING_DNI      → reiterar link formulario pre-check-in
-│    ├─ AWAITING_TICKET   → clasificar_ticket() → Sheets + confirmación
-│    └─ AWAITING_LATE_CHECKOUT_CONFIRM → sí/no → registrar o cancelar
+├─ FILTRO 2: Contexto temporal (col K)
+│    ├─ AWAITING_DNI          → reiterar link formulario pre-check-in
+│    ├─ AWAITING_TICKET + texto → clasificar_ticket() → Sheets + confirmación
+│    └─ AWAITING_LATE_CHECKOUT_CONFIRM + texto → sí/no → registrar o cancelar
 │
-└─ FILTRO 3: Fase de estadía (col J del Sheets)
+└─ FILTRO 3: Fase de estadía (col J)
      ├─ RESERVADO
      │    ├─ pre_ci=False → AWAITING_DNI + link formulario
-     │    ├─ intención llegada → PIN + Drive link → CHECKED_IN
-     │    └─ otra consulta → IA genérica
+     │    ├─ intención llegada detectada → PIN + Drive → CHECKED_IN
+     │    └─ consulta genérica → IA básica
      │
      ├─ CHECKED_IN
      │    ├─ botón menú → WiFi | Amenities | Incidente | Consulta IA
      │    └─ texto libre
      │         ├─ checkout detectado → instrucciones PDF + CHECKED_OUT
-     │         ├─ late checkout → política PDF + AWAITING_LATE_CHECKOUT_CONFIRM
-     │         └─ consulta general → Gemini Flash (PDF + datos huésped)
-     │                                └─ [EMERGENCIA] → logging.warning ALERTA
+     │         ├─ late checkout detectado → política PDF + confirmación
+     │         └─ consulta general → Gemini (PDF del hotel + datos del huésped)
+     │                                └─ [EMERGENCIA] → ticket + logging.warning
      │
-     └─ CHECKED_OUT → "Tu estadía ha finalizado. Esperamos verte pronto."
+     └─ CHECKED_OUT → mensaje de despedida + link de reseña
 ```
 
 ---
@@ -200,15 +323,19 @@ _procesar_mensaje(numero_wa, texto, phone_number_id, button_id)
 RESERVADO ──(llegada detectada)──► CHECKED_IN ──(checkout)──► CHECKED_OUT
 ```
 
+Unidireccional. Ninguna transición va hacia atrás.
+
 ### Contexto de Chat — columna K
 
 ```
-NORMAL ◄──────────────────────────────────────────────┐
-  │                                                    │ (reset tras respuesta)
-  ├──► AWAITING_DNI              (esperando formulario)│
-  ├──► AWAITING_TICKET           (esperando descripción del problema)
-  └──► AWAITING_LATE_CHECKOUT_CONFIRM  (esperando sí/no)
+NORMAL ◄─────────────────────────────────────────────────────┐
+  │                                                           │ (reset tras procesar)
+  ├──► AWAITING_DNI                  (esperando formulario pre-check-in)
+  ├──► AWAITING_TICKET               (esperando descripción del problema)
+  └──► AWAITING_LATE_CHECKOUT_CONFIRM (esperando sí/no del huésped)
 ```
+
+El contexto se resetea a `NORMAL` automáticamente después de procesar la respuesta del huésped.
 
 ---
 
@@ -219,31 +346,33 @@ La pestaña principal (default: **`Huéspedes`**) tiene la siguiente estructura:
 | Col | Letra | Campo | Valores posibles |
 |-----|-------|-------|-----------------|
 | 1 | A | Nombre Turista | Texto libre |
-| 2 | B | Teléfono | Número WhatsApp internacional (clave de búsqueda) |
+| 2 | B | Teléfono | Número WhatsApp internacional — **clave de búsqueda** |
 | 3 | C | Email | |
 | 4 | D | Habitación | |
 | 5 | E | Fecha Check-in | `YYYY-MM-DD` |
 | 6 | F | Fecha Check-out | `YYYY-MM-DD` |
 | 7 | G | Pre-CheckIn Completo | `SÍ` / `NO` |
 | 8 | H | ID Carpeta Drive | ID de la carpeta con instrucciones de habitación |
-| 9 | I | Idioma | `es` / `en` / `pt` |
+| 9 | I | Idioma | `es` / `en` / `pt` / `fr` / `de` |
 | 10 | J | **Estado de Estadía** | `RESERVADO` / `CHECKED_IN` / `CHECKED_OUT` |
 | 11 | K | **Contexto Chat** | `NORMAL` / `AWAITING_DNI` / `AWAITING_TICKET` / `AWAITING_LATE_CHECKOUT_CONFIRM` |
 | 12 | L | PIN Acceso | Código de la cerradura |
+
+> La columna B (teléfono) es la clave primaria de búsqueda. Debe contener el número WhatsApp en formato internacional sin el `+` (ej. `5491187654321`).
 
 ### Pestaña `Tickets_Soporte` (creada automáticamente)
 
 Se crea la primera vez que se registra un ticket:
 
-| Col | Campo | Descripción |
-|-----|-------|-------------|
+| Col | Campo | Valores |
+|-----|-------|---------|
 | A | Fecha | `YYYY-MM-DD` |
 | B | Hora | `HH:MM` UTC |
-| C | Habitación | |
-| D | Teléfono | Número del huésped |
-| E | Detalle | Descripción del problema/requerimiento |
+| C | Habitación | Del col D del huésped |
+| D | Teléfono | Número WhatsApp del huésped |
+| E | Detalle | Descripción en texto libre |
 | F | Tipo | `NORMAL` / `EMERGENCIA` / `LATE_CHECKOUT` |
-| G | Estado | `PENDIENTE` |
+| G | Estado | `PENDIENTE` (siempre — el staff lo actualiza manualmente) |
 
 ---
 
@@ -255,56 +384,104 @@ Verificación del webhook al configurar en Meta for Developers.
 
 **Query params:**
 - `hub.mode` — debe ser `subscribe`
-- `hub.verify_token` — comparado con `WHATSAPP_VERIFY_TOKEN`
+- `hub.verify_token` — comparado con `WHATSAPP_VERIFY_TOKEN` via `hmac.compare_digest`
 - `hub.challenge` — retornado como entero si el token coincide
 
 ### `POST /api/v1/recepcionista/whatsapp/webhook`
 
 Recepción de mensajes entrantes de WhatsApp.
 
-- Retorna **HTTP 200 siempre e inmediatamente** (Meta timeout = 15s)
-- El procesamiento real corre en `BackgroundTask`
-- Valida la firma `X-Hub-Signature-256` si se envía en el header
+- Retorna **HTTP 200 siempre e inmediatamente** (Meta timeout = 15 s)
+- El procesamiento real corre en `BackgroundTask` asíncrono
+- Valida la firma `X-Hub-Signature-256` si está presente en el header
 
-**Payload de Meta (simplificado):**
-```json
-{
-  "object": "whatsapp_business_account",
-  "entry": [{
-    "changes": [{
-      "value": {
-        "metadata": { "phone_number_id": "PHONE_ID_DEL_HOTEL" },
-        "messages": [{
-          "id": "wamid.xxx",
-          "from": "5491187654321",
-          "type": "text",
-          "text": { "body": "ya llegué al hotel" }
-        }]
-      }
-    }]
-  }]
-}
+**Tipos de mensaje procesados:**
+- `text` — mensaje de texto libre
+- `interactive` (list_reply / button_reply) — selección de menú
+
+**Tipos ignorados:**
+- Imágenes, audio, video, stickers, actualizaciones de estado
+
+---
+
+## Instalación y variables de entorno
+
+```bash
+pip install -r requirements.txt
+cp .env.example .env
+cp /ruta/service-account.json google-credentials.json
 ```
 
-**Mensajes interactivos (selección de lista/botones):**
-```json
-{
-  "type": "interactive",
-  "interactive": {
-    "type": "list_reply",
-    "list_reply": { "id": "MENU_WIFI", "title": "Wi-Fi / Clave" }
-  }
-}
+```env
+# CRM interno
+CRM_DM_GLOBAL_API_URL=http://localhost:8001
+CRM_DM_GLOBAL_API_KEY=
+CRM_HOTEL_ID=HOTEL-NOMBRE-01
+
+# Gemini
+GEMINI_API_KEY=
+
+# Google Drive (PDF de reglas del hotel)
+GOOGLE_DRIVE_FILE_ID=
+GOOGLE_SERVICE_ACCOUNT_FILE=google-credentials.json
+
+# Google Sheets (estado de huéspedes)
+GOOGLE_SHEETS_ID=
+GOOGLE_SHEETS_TAB=Huéspedes
+
+# WhatsApp Business (Meta)
+WHATSAPP_VERIFY_TOKEN=
+WHATSAPP_ACCESS_TOKEN=
+WHATSAPP_PHONE_NUMBER_ID=
+
+# Formulario pre-check-in
+PRECHECKIN_FORM_URL=https://tu-crm.com/precheckin/
+
+# Comportamiento
+RECEPTIONIST_BUSINESS_NAME=Hotel DM Global
+RECEPTIONIST_DEFAULT_LANG=es          # es | en | pt | fr | de
+RECEPTIONIST_MAX_HISTORY=10
+RECEPTIONIST_SESSION_TTL_MINUTES=60
+```
+
+### Configuración inicial de Google Cloud
+
+```bash
+# 1. Crear cuenta de servicio en Google Cloud Console
+#    Habilitar: Drive API v3 + Sheets API v4
+#    Descargar JSON → google-credentials.json
+
+# 2. Compartir con la cuenta de servicio:
+#    - Carpeta Drive con el PDF del hotel (lectura)
+#    - Spreadsheet de huéspedes (edición)
+
+# 3. Configurar webhook en Meta for Developers
+#    URL: https://tu-dominio.com/api/v1/recepcionista/whatsapp/webhook
+#    Token de verificación: valor de WHATSAPP_VERIFY_TOKEN
+
+# 4. Copiar Phone Number ID → WHATSAPP_PHONE_NUMBER_ID
 ```
 
 ---
 
-## Google Apps Scripts
+## Estructura de archivos
 
-> Los scripts de automatización asociados al Servicio de Feedback (planilla de
-> clientes, aprobación de borrador, informes semanales, etc.) se documentan en
-> el proyecto Django **`dm_global`**. Este módulo los consume a través de los
-> endpoints del CRM.
+```
+virtual_receptionist/
+│
+├── config.py                   ← Settings (pydantic-settings, .env)
+│
+├── routers/
+│   └── whatsapp.py             ← Endpoints GET/POST /webhook + pipeline completo
+│                                  (detección de intenciones, constructores de mensajes)
+│
+└── services/
+    ├── ai_service.py           ← Gemini Flash: generate_response, clasificar_ticket, es_emergencia
+    ├── crm_service.py          ← check_subscription → CRM DM Global API
+    ├── drive_service.py        ← get_hotel_rules: PDF → texto, caché 1 hora
+    ├── sheets_service.py       ← Estado del huésped: get/update EstadoEstadia, ContextoChat, idioma
+    └── whatsapp_service.py     ← Constructores de payloads Meta API, envíos HTTP, traducciones
+```
 
 ---
 
@@ -312,36 +489,11 @@ Recepción de mensajes entrantes de WhatsApp.
 
 | Mecanismo | Implementación |
 |---|---|
-| Verificación de webhook | `hmac.compare_digest` en tiempo constante (anti timing-attack) |
-| Firma de payload | Validación `X-Hub-Signature-256` HMAC-SHA256 (opcional, recomendada en prod) |
-| API Key CRM | Header `Authorization: Bearer` + `X-API-Key` en todas las llamadas |
-| Suscripción activa | `check_subscription()` consulta el CRM antes de procesar cada mensaje |
-| Service Account | Mínimo privilegio: scope `drive.readonly` + `spreadsheets` solamente |
-| Tokens WhatsApp | Solo en variables de entorno, nunca en código |
-| Fail-open CRM | Si `check_subscription` falla por red → retorna `True` (el huésped no queda varado) y loggea el error |
-| Fail-open IA | Si Gemini falla → retorna mensaje de fallback genérico sin revelar el error |
-| Emergencias | `[EMERGENCIA]` en respuesta de IA → `logging.warning("DISPARAR ALERTA TWILIO/TELEGRAM")` + hook para notificar al dueño |
-
----
-
-## Flujo de configuración inicial
-
-```bash
-# 1. Crear cuenta de servicio en Google Cloud Console
-#    Habilitar: Drive API v3 + Sheets API v4
-#    Descargar JSON → google-credentials.json (en raíz del proyecto)
-
-# 2. Compartir con la cuenta de servicio:
-#    - La carpeta de Drive con el PDF del hotel (lectura)
-#    - El Spreadsheet de huéspedes (edición)
-
-# 3. Configurar webhook en Meta for Developers
-#    URL: https://tu-dominio.com/api/v1/recepcionista/whatsapp/webhook
-#    Token de verificación: valor de WHATSAPP_VERIFY_TOKEN en .env
-
-# 4. Registrar el número de WhatsApp Business
-#    Copiar Phone Number ID → WHATSAPP_PHONE_NUMBER_ID en .env
-
-# 5. Arrancar el servidor
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-```
+| Verificación de webhook Meta | `hmac.compare_digest` en tiempo constante (anti timing-attack) |
+| Firma de payload | `X-Hub-Signature-256` HMAC-SHA256 (opcional, recomendada en prod) |
+| Suscripción activa | `check_subscription()` en cada mensaje antes de procesar |
+| Fail-open en CRM | Red caída → procesar igual; 404 → bloquear |
+| Service Account Google | Mínimo privilegio: `drive.readonly` + `spreadsheets` |
+| Tokens WhatsApp y Gemini | Solo en variables de entorno, nunca en código |
+| Fail-open en IA | Gemini falla → fallback genérico sin exponer el error al huésped |
+| Emergencias | `[EMERGENCIA]` en respuesta → ticket EMERGENCIA + `logging.warning` (alertas Twilio/Telegram: TODO producción) |

@@ -41,15 +41,17 @@ class BotonesIdioma:
     ES = "lang_es"
     EN = "lang_en"
     PT = "lang_pt"
+    FR = "lang_fr"
+    DE = "lang_de"
 
     @classmethod
     def todos(cls) -> frozenset[str]:
-        return frozenset({cls.ES, cls.EN, cls.PT})
+        return frozenset({cls.ES, cls.EN, cls.PT, cls.FR, cls.DE})
 
     @classmethod
     def lang_for(cls, button_id: str) -> str:
         """Retorna el código de idioma para un button_id ('lang_es' → 'es')."""
-        return {cls.ES: "es", cls.EN: "en", cls.PT: "pt"}.get(button_id, "es")
+        return {cls.ES: "es", cls.EN: "en", cls.PT: "pt", cls.FR: "fr", cls.DE: "de"}.get(button_id, "es")
 
 
 class BotonesMenu:
@@ -112,6 +114,32 @@ _MENU: dict[str, dict] = {
             {"id": BotonesMenu.CONSULTA,  "title": "❓ Outra Consulta",          "description": "Assistente de IA disponível"},
         ],
     },
+    "fr": {
+        "header":          "Services pendant votre séjour 🏨",
+        "body":            "Comment pouvons-nous vous aider cette nuit ?",
+        "footer":          "Réceptionniste Virtuel • Disponible 24h/24",
+        "boton_expandir":  "Voir les options",
+        "titulo_seccion":  "Services",
+        "opciones": [
+            {"id": BotonesMenu.WIFI,      "title": "📶 Wi-Fi / Code",            "description": "Réseau et mot de passe internet"},
+            {"id": BotonesMenu.AMENITIES, "title": "🛏️ Équipements Supplémentaires", "description": "Serviettes, oreillers, etc."},
+            {"id": BotonesMenu.INCIDENTE, "title": "🛠️ Signaler un Incident",   "description": "Problème technique dans la chambre"},
+            {"id": BotonesMenu.CONSULTA,  "title": "❓ Autre Demande",           "description": "Assistant IA disponible"},
+        ],
+    },
+    "de": {
+        "header":          "Dienstleistungen während Ihres Aufenthalts 🏨",
+        "body":            "Wie können wir Ihnen heute Nacht helfen?",
+        "footer":          "Virtueller Rezeptionist • 24h verfügbar",
+        "boton_expandir":  "Optionen anzeigen",
+        "titulo_seccion":  "Dienstleistungen",
+        "opciones": [
+            {"id": BotonesMenu.WIFI,      "title": "📶 WLAN / Passwort",         "description": "Netzwerk und Internetpasswort"},
+            {"id": BotonesMenu.AMENITIES, "title": "🛏️ Zusätzliche Ausstattung", "description": "Handtücher, Kissen, usw."},
+            {"id": BotonesMenu.INCIDENTE, "title": "🛠️ Vorfall Melden",          "description": "Technisches Problem im Zimmer"},
+            {"id": BotonesMenu.CONSULTA,  "title": "❓ Andere Anfrage",           "description": "KI-Assistent verfügbar"},
+        ],
+    },
 }
 
 # Mensaje que el bot envía ANTES de recibir el detalle del ticket (AWAITING_TICKET)
@@ -131,6 +159,16 @@ _MSG_AWAITING_TICKET: dict[str, str] = {
         "Por favor, descreva seu pedido ou problema em *uma única mensagem de texto*. "
         "O sistema irá processá-lo imediatamente e notificar a equipe."
     ),
+    "fr": (
+        "Compris. 📝\n\n"
+        "Veuillez décrire votre demande ou problème en *un seul message texte*. "
+        "Le système le traitera immédiatement et en informera le personnel."
+    ),
+    "de": (
+        "Verstanden. 📝\n\n"
+        "Bitte beschreiben Sie Ihre Anfrage oder Ihr Problem in *einer einzigen Textnachricht*. "
+        "Das System wird sie sofort bearbeiten und das Personal benachrichtigen."
+    ),
 }
 
 # Confirmación enviada al huésped cuando su ticket normal fue registrado
@@ -149,6 +187,16 @@ _MSG_TICKET_REGISTRADO: dict[str, str] = {
         "✅ Seu relatório foi registrado com sucesso.\n\n"
         "A equipe foi notificada e te atenderá em breve. "
         "Se for urgente, ligue para a recepção."
+    ),
+    "fr": (
+        "✅ Votre signalement a été enregistré avec succès.\n\n"
+        "Le personnel a été notifié et s'occupera de vous rapidement. "
+        "Si c'est urgent, appelez la réception."
+    ),
+    "de": (
+        "✅ Ihre Meldung wurde erfolgreich registriert.\n\n"
+        "Das Personal wurde benachrichtigt und wird sich umgehend um Sie kümmern. "
+        "Bei Dringlichkeit rufen Sie bitte die Rezeption an."
     ),
 }
 
@@ -178,6 +226,22 @@ _MSG_EMERGENCIA_TICKET: dict[str, str] = {
         "• Ligue para o número de emergências do hotel ou 193.\n"
         "• Mantenha contato por este chat."
     ),
+    "fr": (
+        "🚨 *URGENCE DÉTECTÉE*\n\n"
+        "Nous alertons immédiatement le responsable de l'hôtel. "
+        "Veuillez rester calme et suivre ces instructions:\n\n"
+        "• En cas de risque immédiat, évacuez la chambre.\n"
+        "• Appelez le numéro d'urgence de l'hôtel ou le 15/17/18.\n"
+        "• Restez en contact via ce chat."
+    ),
+    "de": (
+        "🚨 *NOTFALL ERKANNT*\n\n"
+        "Wir benachrichtigen sofort den Hotelmanager. "
+        "Bitte bleiben Sie ruhig und befolgen Sie diese Anweisungen:\n\n"
+        "• Bei unmittelbarer Gefahr, verlassen Sie sofort das Zimmer.\n"
+        "• Rufen Sie die Notrufnummer des Hotels oder 110/112 an.\n"
+        "• Bleiben Sie über diesen Chat erreichbar."
+    ),
 }
 
 
@@ -198,6 +262,16 @@ PROMPT_INSTRUCCIONES_CHECKOUT: dict[str, str] = {
         "Inclua: o que desligar, onde deixar a chave ou cartão, "
         "e quaisquer instruções especiais de saída."
     ),
+    "fr": (
+        "Quelles sont les instructions complètes pour le check-out ? "
+        "Inclure: ce qu'il faut éteindre, où laisser la clé ou la carte, "
+        "et toute instruction spéciale de départ."
+    ),
+    "de": (
+        "Wie lauten die vollständigen Check-out-Anweisungen? "
+        "Bitte angeben: was abzuschalten ist, wo der Schlüssel oder die Karte zu hinterlassen ist, "
+        "und besondere Abreiseanweisungen."
+    ),
 }
 
 PROMPT_POLITICA_LATE_CHECKOUT: dict[str, str] = {
@@ -216,18 +290,30 @@ PROMPT_POLITICA_LATE_CHECKOUT: dict[str, str] = {
         "Informe: horário padrão de saída, horário máximo disponível para late check-out, "
         "e qual é o custo adicional."
     ),
+    "fr": (
+        "Quelle est la politique de late check-out de l'hôtel ? "
+        "Indiquer: l'heure de départ standard, l'heure maximale possible pour le late check-out, "
+        "et le coût supplémentaire."
+    ),
+    "de": (
+        "Was ist die Late-Check-out-Richtlinie des Hotels? "
+        "Angeben: Standard-Abreisezeit, späteste mögliche Late-Check-out-Zeit, "
+        "und die zusätzlichen Kosten."
+    ),
 }
 
 # Sufijo que se agrega a la respuesta de la IA sobre política de late checkout
 _MENU_IDIOMA = {
-    "header":         "🌐 Language / Idioma / Língua",
-    "body":           "Please select your language to continue.\nSeleccioná tu idioma para continuar.\nSelecione seu idioma para continuar.",
+    "header":         "🌐 Language / Idioma / Língua / Langue / Sprache",
+    "body":           "Please select your language to continue.\nSeleccioná tu idioma para continuar.\nSelecione seu idioma para continuar.\nSélectionnez votre langue pour continuer.\nWählen Sie Ihre Sprache aus.",
     "boton_expandir": "Select / Seleccionar",
     "titulo_seccion": "Idiomas disponibles",
     "opciones": [
-        {"id": BotonesIdioma.ES, "title": "🇦🇷 Español", "description": "Continuar en español"},
-        {"id": BotonesIdioma.EN, "title": "🇺🇸 English", "description": "Continue in English"},
-        {"id": BotonesIdioma.PT, "title": "🇧🇷 Português", "description": "Continuar em português"},
+        {"id": BotonesIdioma.ES, "title": "🇦🇷 Español",    "description": "Continuar en español"},
+        {"id": BotonesIdioma.EN, "title": "🇺🇸 English",    "description": "Continue in English"},
+        {"id": BotonesIdioma.PT, "title": "🇧🇷 Português",  "description": "Continuar em português"},
+        {"id": BotonesIdioma.FR, "title": "🇫🇷 Français",   "description": "Continuer en français"},
+        {"id": BotonesIdioma.DE, "title": "🇩🇪 Deutsch",    "description": "Auf Deutsch fortfahren"},
     ],
 }
 
@@ -235,6 +321,8 @@ _BIENVENIDA_NUEVA_SESION: dict[str, str] = {
     "es": "¡Hola{nombre}! Bienvenido/a. ¿En qué puedo ayudarte?",
     "en": "Hello{nombre}! Welcome. How can I help you?",
     "pt": "Olá{nombre}! Bem-vindo/a. Como posso ajudar?",
+    "fr": "Bonjour{nombre} ! Bienvenue. Comment puis-je vous aider ?",
+    "de": "Hallo{nombre}! Willkommen. Wie kann ich Ihnen helfen?",
 }
 
 _MSG_CHECKED_OUT: dict[str, str] = {
@@ -253,12 +341,24 @@ _MSG_CHECKED_OUT: dict[str, str] = {
         "Esperamos vê-lo novamente em breve em {hotel}. "
         "Boa viagem!"
     ),
+    "fr": (
+        "Votre séjour est terminé. 🙏\n\n"
+        "Nous espérons vous revoir bientôt à {hotel}. "
+        "Bon voyage !"
+    ),
+    "de": (
+        "Ihr Aufenthalt ist beendet. 🙏\n\n"
+        "Wir hoffen, Sie bald wieder in {hotel} begrüßen zu dürfen. "
+        "Gute Reise!"
+    ),
 }
 
 _MSG_LATE_CHECKOUT_PREGUNTA: dict[str, str] = {
     "es": "\n\n¿Deseas solicitar el late check-out al administrador? Respondé *sí* para confirmar.",
     "en": "\n\nWould you like to request late check-out from the administrator? Reply *yes* to confirm.",
     "pt": "\n\nDeseja solicitar o late check-out ao administrador? Responda *sim* para confirmar.",
+    "fr": "\n\nSouhaitez-vous demander un late check-out à l'administrateur ? Répondez *oui* pour confirmer.",
+    "de": "\n\nMöchten Sie einen Late-Check-out beim Administrator anfragen? Antworten Sie mit *ja* zur Bestätigung.",
 }
 
 _MSG_LATE_CHECKOUT_SOLICITADO: dict[str, str] = {
@@ -274,12 +374,22 @@ _MSG_LATE_CHECKOUT_SOLICITADO: dict[str, str] = {
         "✅ Sua solicitação de late check-out foi enviada ao administrador do hotel.\n\n"
         "Confirmaremos a disponibilidade em breve por este chat."
     ),
+    "fr": (
+        "✅ Votre demande de late check-out a été envoyée à l'administrateur de l'hôtel.\n\n"
+        "Nous vous confirmerons la disponibilité sous peu via ce chat."
+    ),
+    "de": (
+        "✅ Ihre Late-Check-out-Anfrage wurde an den Hotelmanager gesendet.\n\n"
+        "Wir werden Ihnen die Verfügbarkeit in Kürze über diesen Chat bestätigen."
+    ),
 }
 
 _MSG_LATE_CHECKOUT_CANCELADO: dict[str, str] = {
     "es": "Entendido. La salida seguirá siendo en el horario estándar. ¿Puedo ayudarte con algo más?",
     "en": "Understood. Check-out will be at the standard time. Can I help you with anything else?",
     "pt": "Entendido. A saída será no horário padrão. Posso ajudar com mais alguma coisa?",
+    "fr": "Compris. Le départ sera à l'heure standard. Puis-je vous aider avec autre chose ?",
+    "de": "Verstanden. Der Check-out erfolgt zur Standardzeit. Kann ich Ihnen noch anderweitig helfen?",
 }
 
 _MSG_CHECKOUT_PROCESADO: dict[str, str] = {
@@ -297,6 +407,16 @@ _MSG_CHECKOUT_PROCESADO: dict[str, str] = {
         "✅ *Até logo!* Seu check-out foi registrado com sucesso. 🙏\n\n"
         "Foi um prazer tê-lo conosco. Se sua experiência foi positiva, "
         "adoraríamos ler sua opinião:\n{review_link}"
+    ),
+    "fr": (
+        "✅ *À bientôt !* Votre check-out a été enregistré avec succès. 🙏\n\n"
+        "Ce fut un plaisir de vous accueillir. Si votre séjour était positif, "
+        "nous serions ravis de lire votre avis :\n{review_link}"
+    ),
+    "de": (
+        "✅ *Auf Wiedersehen!* Ihr Check-out wurde erfolgreich registriert. 🙏\n\n"
+        "Es war uns eine Freude, Sie bei uns zu haben. Wenn Ihr Aufenthalt positiv war, "
+        "würden wir uns über Ihre Bewertung freuen:\n{review_link}"
     ),
 }
 

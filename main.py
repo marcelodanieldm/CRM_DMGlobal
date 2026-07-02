@@ -67,7 +67,7 @@ async def lifespan(app: FastAPI):
 
     scheduler.start()
     logger.info("APScheduler iniciado | renovación diaria + limpieza de sesiones")
-    logger.info("Recepcionista Virtual Nocturno: listo.")
+    logger.info("Recepcionista Virtual: listo.")
 
     yield
 

@@ -1,5 +1,5 @@
 """
-Drive Service — Recepcionista Virtual Nocturno.
+Drive Service — Recepcionista Virtual.
 
 Descarga el PDF de reglas/contexto del hotel desde Google Drive y extrae
 su texto para inyectarlo en el system prompt de Gemini Flash.

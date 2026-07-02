@@ -130,7 +130,7 @@ class ConfigFeedbackCliente(Base):
 
 
 class ConfigRecepcionistaCliente(Base):
-    """Configuración del Recepcionista Virtual Nocturno para un cliente.
+    """Configuración del Recepcionista Virtual para un cliente.
 
     Almacena todos los identificadores externos que el módulo ``virtual_receptionist``
     necesita para operar de forma autónoma en la planilla y WhatsApp de ese cliente.

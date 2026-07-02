@@ -1,5 +1,5 @@
 """
-WhatsApp Router — Recepcionista Virtual Nocturno.
+WhatsApp Router — Recepcionista Virtual.
 
 Implementa el webhook de WhatsApp Business Cloud API (Meta).
 
@@ -533,6 +533,8 @@ async def _bienvenida_por_fase(
             "es": "Cuando llegues, escríbeme '✅ Ya llegué' para recibir tu PIN de acceso.",
             "en": "When you arrive, write me '✅ I'm here' to receive your access PIN.",
             "pt": "Quando chegar, me escreva '✅ Cheguei' para receber seu PIN de acesso.",
+            "fr": "À votre arrivée, écrivez-moi '✅ Je suis arrivé' pour recevoir votre code d'accès.",
+            "de": "Bei Ihrer Ankunft schreiben Sie mir '✅ Ich bin da', um Ihren Zugangscode zu erhalten.",
         }
         await _enviar_respuesta(phone_number_id, numero_wa, instrucciones_llegada.get(idioma, instrucciones_llegada["es"]))
     elif estado_est == EstadoEstadia.CHECKED_OUT.value:
@@ -1308,6 +1310,18 @@ _KEYWORDS_CHECKOUT: dict[str, frozenset[str]] = {
         "deixar o quarto", "saída do hotel", "hora de sair",
         "entregar chave", "deixar a chave",
     }),
+    "fr": frozenset({
+        "checkout", "check-out", "check out", "faire le checkout",
+        "partir", "je pars", "je m'en vais", "en train de partir",
+        "quitter la chambre", "départ de l'hôtel", "heure de départ",
+        "rendre la clé", "laisser la clé",
+    }),
+    "de": frozenset({
+        "checkout", "check-out", "check out", "auschecken",
+        "abreisen", "ich reise ab", "ich gehe", "abfahrt",
+        "zimmer verlassen", "zimmer räumen", "schlüssel abgeben",
+        "abfahrtszeit", "abreisezeit",
+    }),
 }
 
 _KEYWORDS_LATE_CHECKOUT: dict[str, frozenset[str]] = {
@@ -1333,6 +1347,18 @@ _KEYWORDS_LATE_CHECKOUT: dict[str, frozenset[str]] = {
         "estender estadia", "mais horas", "tarde para sair",
         "depois do horário", "precisar de mais tempo",
     }),
+    "fr": frozenset({
+        "late checkout", "late check-out", "départ tardif",
+        "rester jusqu'à", "je peux rester", "partir plus tard",
+        "prolonger le séjour", "quelques heures de plus", "après l'heure",
+        "dépasser l'heure", "besoin de plus de temps",
+    }),
+    "de": frozenset({
+        "late checkout", "late check-out", "später abreisen",
+        "bis später bleiben", "kann ich bleiben", "später auschecken",
+        "aufenthalt verlängern", "mehr stunden", "nach der checkout-zeit",
+        "mehr zeit brauchen", "späterer abgang",
+    }),
 }
 
 # Palabras de afirmación/negación para la confirmación de late checkout
@@ -1341,10 +1367,14 @@ _KEYWORDS_AFIRMACION: frozenset[str] = frozenset({
     "dale", "claro", "confirmo", "acepto", "adelante", "perfecto",
     "sure", "go ahead", "please", "absolutely", "definitively",
     "puede ser", "certo", "com certeza", "por favor",
+    "oui", "bien sûr", "d'accord", "naturellement", "volontiers",
+    "ja", "natürlich", "einverstanden", "gerne", "bestätigen",
 })
 _KEYWORDS_NEGACION: frozenset[str] = frozenset({
     "no", "nao", "não", "cancel", "cancelar", "no gracias", "no quiero",
     "no quero", "nope", "negative", "cancela",
+    "non", "annuler", "pas question",
+    "nein", "abbrechen", "nicht", "danke nein",
 })
 
 
@@ -1415,6 +1445,18 @@ _KEYWORDS_LLEGADA: dict[str, frozenset[str]] = {
         "onde fica", "como chegar", "acabei de chegar", "estou aqui",
         "check-in", "fazer check in",
     }),
+    "fr": frozenset({
+        "je viens d'arriver", "je suis arrivé", "j'arrive", "en train d'arriver",
+        "comment j'entre", "code de la porte", "code d'accès", "pin d'accès",
+        "comment ouvrir", "instructions d'arrivée", "je suis à la porte",
+        "où se trouve", "comment arriver", "je suis là", "check-in", "faire le check-in",
+    }),
+    "de": frozenset({
+        "ich bin gerade angekommen", "ich bin da", "gerade angekommen", "ich komme",
+        "wie komme ich rein", "türcode", "zugangscode", "pin-code", "zimmercode",
+        "wie öffne ich", "ankunftsanweisungen", "ich stehe an der tür",
+        "wo ist", "wie komme ich an", "check-in", "einchecken",
+    }),
 }
 
 
@@ -1466,6 +1508,16 @@ _MSG_DNI_RECIBIDO: dict[str, str] = {
         "Quando você concluir o formulário de registro, seu acesso será "
         "habilitado automaticamente. Se tiver dúvidas, responda aqui."
     ),
+    "fr": (
+        "Merci pour votre message. 📋\n\n"
+        "Une fois le formulaire d'enregistrement complété, votre accès sera "
+        "activé automatiquement. Si vous avez des questions, répondez ici."
+    ),
+    "de": (
+        "Danke für Ihre Nachricht. 📋\n\n"
+        "Sobald Sie das Anmeldeformular ausgefüllt haben, wird Ihr Zugang "
+        "automatisch aktiviert. Bei Fragen antworten Sie hier."
+    ),
 }
 
 
@@ -1473,7 +1525,7 @@ def _construir_mensaje_precheckin(nombre: str, idioma: str, form_url: str) -> st
     """Construye el mensaje de solicitud de pre-check-in en el idioma del huésped.
 
     El mensaje interrumpe cualquier otra conversación — es el primer paso
-    obligatorio antes de poder usar el sistema de acceso nocturno.
+    obligatorio antes de poder usar el sistema de acceso virtual.
 
     Args:
         nombre:   Nombre del huésped (para personalizar el saludo).
@@ -1485,7 +1537,7 @@ def _construir_mensaje_precheckin(nombre: str, idioma: str, form_url: str) -> st
     plantillas: dict[str, str] = {
         "es": (
             f"¡Hola{' ' + saludo if saludo else ''}! 👋\n\n"
-            "Para habilitar tus códigos de acceso nocturno y completar tu "
+            "Para habilitar tus códigos de acceso virtual y completar tu "
             "registro legal, necesitamos que subas tu DNI o Pasaporte.\n\n"
             f"✅ *Completa tu registro aquí:*\n{form_url}\n\n"
             "Solo te tomará 2 minutos y tus accesos quedarán habilitados "
@@ -1493,7 +1545,7 @@ def _construir_mensaje_precheckin(nombre: str, idioma: str, form_url: str) -> st
         ),
         "en": (
             f"Hello{' ' + saludo if saludo else ''}! 👋\n\n"
-            "To enable your nighttime access codes and complete your legal "
+            "To enable your virtual access codes and complete your legal "
             "registration, please upload your ID or Passport.\n\n"
             f"✅ *Complete your registration here:*\n{form_url}\n\n"
             "It only takes 2 minutes and your access will be enabled "
@@ -1501,11 +1553,27 @@ def _construir_mensaje_precheckin(nombre: str, idioma: str, form_url: str) -> st
         ),
         "pt": (
             f"Olá{' ' + saludo if saludo else ''}! 👋\n\n"
-            "Para habilitar seus códigos de acesso noturno e concluir seu "
+            "Para habilitar seus códigos de acesso virtual e concluir seu "
             "registro legal, precisamos que você envie seu RG ou Passaporte.\n\n"
             f"✅ *Conclua seu registro aqui:*\n{form_url}\n\n"
             "Leva apenas 2 minutos e seus acessos serão habilitados "
             "automaticamente. Obrigado!"
+        ),
+        "fr": (
+            f"Bonjour{' ' + saludo if saludo else ''} ! 👋\n\n"
+            "Pour activer vos codes d'accès virtuels et compléter votre "
+            "enregistrement légal, nous avons besoin que vous téléchargiez votre pièce d'identité ou passeport.\n\n"
+            f"✅ *Complétez votre enregistrement ici :*\n{form_url}\n\n"
+            "Cela ne prendra que 2 minutes et vos accès seront activés "
+            "automatiquement. Merci !"
+        ),
+        "de": (
+            f"Hallo{' ' + saludo if saludo else ''}! 👋\n\n"
+            "Um Ihre virtuellen Zugangscodes zu aktivieren und Ihre rechtliche "
+            "Registrierung abzuschließen, laden Sie bitte Ihren Ausweis oder Reisepass hoch.\n\n"
+            f"✅ *Vervollständigen Sie Ihre Registrierung hier:*\n{form_url}\n\n"
+            "Es dauert nur 2 Minuten und Ihre Zugänge werden automatisch aktiviert. "
+            "Vielen Dank!"
         ),
     }
     return plantillas.get(idioma, plantillas["es"])
@@ -1574,8 +1642,30 @@ def _construir_mensaje_checkin(
                 f"📍 *Mapa de chegada e instruções:*\n{drive_url}\n\n"
                 if drive_url else ""
             )
-            + "Aproveite sua estadia! Estou disponível a noite toda se precisar "
-            "de algo. 🌙"
+            + "Aproveite sua estadia! Estou disponível a qualquer hora se precisar "
+            "de algo. 😊"
+        ),
+        "fr": (
+            f"Bienvenue, {saludo} ! 🏨🎉\n\n"
+            "Voici toutes les informations pour accéder à votre chambre :\n\n"
+            f"🚪 *Chambre :* {hab_display}\n"
+            f"🔑 *Code d'accès :* {pin_display}\n\n"
+            + (
+                f"📍 *Plan d'arrivée et instructions :*\n{drive_url}\n\n"
+                if drive_url else ""
+            )
+            + "Profitez de votre séjour ! Je suis disponible à toute heure si vous avez besoin de quoi que ce soit. 😊"
+        ),
+        "de": (
+            f"Willkommen, {saludo}! 🏨🎉\n\n"
+            "Hier sind alle Informationen für den Zugang zu Ihrem Zimmer:\n\n"
+            f"🚪 *Zimmer:* {hab_display}\n"
+            f"🔑 *Zugangscode:* {pin_display}\n\n"
+            + (
+                f"📍 *Ankunftskarte und Anweisungen:*\n{drive_url}\n\n"
+                if drive_url else ""
+            )
+            + "Genießen Sie Ihren Aufenthalt! Ich bin jederzeit für Sie da, wenn Sie etwas brauchen. 😊"
         ),
     }
     return plantillas.get(idioma, plantillas["es"])

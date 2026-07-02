@@ -18,6 +18,8 @@ API interna y panel web para la gestión de clientes, servicios y suscripciones 
 - [Dispatcher de eventos (n8n / Zapier)](#dispatcher-de-eventos-n8n--zapier)
 - [Bots de scraping — Validación de acceso](#bots-de-scraping--validación-de-acceso)
 - [Frontend — Panel de administración](#frontend--panel-de-administración)
+- [Servicio de Feedback — Reseñas Google](#servicio-de-feedback--reseñas-google)
+- [Recepcionista Virtual](#recepcionista-virtual)
 - [Ejecución local](#ejecución-local)
 
 ---
@@ -721,6 +723,156 @@ Todos los HTML internos (excepto `login.html`) deben cargar los scripts en este 
 | `data-requiere-admin` en el HTML | auth-guard oculta el elemento si el rol es `soporte` |
 | `SESSION.esAdmin` en el JS | Guards en renderizado dinámico (filas de tabla, botones inline) |
 | `PAGINAS_SOLO_ADMIN` en auth-guard | Redirige y muestra pantalla de "Acceso denegado" para páginas enteras |
+
+---
+
+## Servicio de Feedback — Reseñas Google
+
+Add-on premium que automatiza la recolección de reseñas Google Maps post-servicio. Un widget (Google Apps Script) en el email o formulario del cliente llama al endpoint de validación para obtener el link directo a reseñas.
+
+### Modelo de datos
+
+#### `ConfigFeedbackCliente` (tabla: `config_feedback_clientes`)
+
+Configuración 1:1 por cliente en el CRM principal.
+
+| Campo | Tipo | Restricciones |
+|---|---|---|
+| `id` | BigInteger | PK |
+| `cliente_id` | FK → Cliente | UNIQUE, cascade delete |
+| `tipo_negocio` | Enum | `HOTEL` \| `TOUR` \| `TRANSFER` \| `ALQUILER` \| `RESTO` |
+| `google_review_link` | String(500) | Requerido para operar |
+| `google_sheet_url` | String(500) | nullable — planilla de tracking |
+| `activo` | Boolean | default True |
+
+#### `ServicioFeedbackConfig` (tabla: `feedback_configs`)
+
+Addon multi-tenant desacoplado del CRM.
+
+| Campo | Tipo | Restricciones |
+|---|---|---|
+| `id` | UUID | PK |
+| `organizacion_id` | UUID, FK → Organizacion | UNIQUE (1:1) |
+| `estado_suscripcion` | Enum | `ACTIVO` \| `DEMO` \| `INACTIVO` |
+| `tipo_negocio` | Enum | `HOTEL` \| `RESTO` \| `TOUR` \| `TRANSFER` |
+| `google_review_link` | String(500) | NOT NULL |
+| `google_sheet_url` | String(500) | nullable |
+| `api_token` | UUID | UNIQUE, autogenerado al crear |
+
+---
+
+### Flujo de validación pública
+
+```
+Widget (Google Apps Script) en email / formulario del cliente
+              │
+              ▼
+GET /api/v1/servicio-feedback/validar/?comercio_id=UUID&token=UUID
+              │
+    ¿UUID válido? ──── NO ──────────────────────────────────► 401
+              │ SÍ
+    ¿comercio existe? ── NO ──────────────────────────────── 401 (mismo mensaje)
+              │ SÍ
+    ¿token correcto? ── NO ────────────────────────────────── 401 (mismo mensaje)
+    (secrets.compare_digest — tiempo constante)
+              │ SÍ
+    ¿estado == ACTIVO o DEMO? ── NO (INACTIVO) ──────────── 403 Forbidden
+              │ SÍ
+              ▼
+    200 { autorizado: true, nombre_comercio, tipo_negocio, google_review_link }
+              │
+              ▼
+    Widget muestra botón "Dejar reseña en Google" → abre link
+```
+
+---
+
+### Reglas de negocio
+
+#### Estados de suscripción
+
+| Estado | Acceso al widget | Caso de uso |
+|---|---|---|
+| `ACTIVO` | ✅ Permitido | Cliente pagando |
+| `DEMO` | ✅ Permitido | Período de prueba |
+| `INACTIVO` | ❌ Bloqueado (403) | Suscripción vencida o pausada |
+
+#### Reglas de seguridad
+
+- **Sin fuga de información:** UUID inválido, comercio inexistente y token incorrecto devuelven **exactamente el mismo `401 "Credenciales inválidas"`** — un atacante no puede distinguir entre los tres casos.
+- **Anti timing-attack:** la comparación del token usa `secrets.compare_digest()` (tiempo constante), evitando ataques de timing incluso cuando el comercio no existe (se realiza una comparación dummy).
+- El único error diferenciado es `403`, que solo aparece cuando las credenciales son correctas pero la suscripción está inactiva.
+
+#### Configuración por cliente
+
+- **Una sola config por cliente:** constraint `UNIQUE` en `cliente_id`. Intentar crear una segunda config hace upsert (actualiza la existente).
+- **Upsert automático:** `PUT /api/v1/clientes/{id}/feedback-config` crea si no existe o actualiza si ya existe. `updated_at` siempre se refresca.
+- La config se borra en cascada si se elimina el cliente.
+
+#### Control de acceso (RBAC)
+
+| Operación | Admin | Soporte |
+|---|---|---|
+| Crear / actualizar config | ✅ | ❌ |
+| Eliminar config | ✅ | ❌ |
+| Leer config | ✅ | ✅ |
+| Panel sqladmin (cambiar estado) | ✅ | ❌ |
+
+---
+
+### Endpoints
+
+#### Públicos (sin autenticación)
+
+```
+GET /api/v1/servicio-feedback/validar/?comercio_id=UUID&token=UUID
+```
+
+Usado por los widgets de los clientes. Devuelve el link de reseña si las credenciales son válidas y la suscripción está activa.
+
+#### Protegidos — Admin + Soporte (solo lectura)
+
+```
+GET /api/v1/clientes/{id}/feedback-config
+GET /api/v1/clientes/{id}/servicios-premium      ← feedback + recepcionista juntos
+```
+
+#### Protegidos — Admin (escritura)
+
+```
+PUT    /api/v1/clientes/{id}/feedback-config     ← upsert
+DELETE /api/v1/clientes/{id}/feedback-config
+```
+
+#### Panel sqladmin `/admin`
+
+Permite al admin cambiar el `estado_suscripcion` entre `ACTIVO`, `DEMO` e `INACTIVO` para cada organización, buscar por nombre de comercio y filtrar por estado y tipo de negocio.
+
+---
+
+## Recepcionista Virtual
+
+Bot de WhatsApp + IA que atiende huéspedes 24/7. Se documenta en detalle en [`virtual_receptionist/README.md`](virtual_receptionist/README.md).
+
+### Configuración por cliente
+
+Cada hotel requiere una entrada `ConfigRecepcionistaCliente` (tabla: `config_recepcionista_clientes`):
+
+| Campo | Descripción |
+|---|---|
+| `hotel_id` | ID legible del hotel en el CRM (ej. `HOTEL-TERRAZAS-01`) |
+| `whatsapp_phone_number_id` | ID del número Meta WhatsApp Business |
+| `google_sheets_id` | ID de la planilla de huéspedes |
+| `google_drive_file_id` | ID del PDF de reglas del hotel |
+| `precheckin_form_url` | URL del formulario de pre check-in |
+
+**Gestión desde el CRM:**
+
+```
+GET    /api/v1/clientes/{id}/recepcionista-config    ← admin + soporte
+PUT    /api/v1/clientes/{id}/recepcionista-config    ← admin (upsert)
+DELETE /api/v1/clientes/{id}/recepcionista-config    ← admin
+```
 
 ---
 

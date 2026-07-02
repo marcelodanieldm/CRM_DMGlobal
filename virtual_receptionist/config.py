@@ -1,5 +1,5 @@
 """
-Configuración del módulo Recepcionista Virtual Nocturno.
+Configuración del módulo Recepcionista Virtual.
 
 Carga y valida todas las variables de entorno requeridas usando
 pydantic-settings, que lee desde el archivo .env automáticamente.

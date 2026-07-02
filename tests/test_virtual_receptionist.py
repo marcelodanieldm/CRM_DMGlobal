@@ -1,5 +1,5 @@
 """
-Tests unitarios del Recepcionista Virtual Nocturno.
+Tests unitarios del Recepcionista Virtual.
 
 Cobertura:
   crm_service     check_subscription — status values, fail-open cases
