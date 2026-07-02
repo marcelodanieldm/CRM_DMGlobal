@@ -7,8 +7,17 @@ hay estado compartido entre tests ni necesidad de limpiar manualmente.
 """
 import os
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+# Core CRM
+os.environ.setdefault("DATABASE_URL",  "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-only-for-pytest")
+
+# Virtual Receptionist (required by pydantic-settings at import time)
+os.environ.setdefault("GEMINI_API_KEY",          "test-gemini-key-pytest")
+os.environ.setdefault("WHATSAPP_VERIFY_TOKEN",   "test-verify-token")
+os.environ.setdefault("WHATSAPP_ACCESS_TOKEN",   "test-access-token")
+os.environ.setdefault("CRM_DM_GLOBAL_API_URL",   "http://localhost:9999")
+os.environ.setdefault("GOOGLE_SHEETS_ID",         "test-sheets-id")
+os.environ.setdefault("PRECHECKIN_FORM_URL",      "https://test.crm.com/precheckin/")
 
 from typing import Iterator
 
