@@ -15,6 +15,7 @@ from routers import (
     login,
     servicio_feedback,
     servicios,
+    servicios_premium,
     suscripciones,
     validacion,
     webhooks,
@@ -100,6 +101,7 @@ app.include_router(webhooks.router)
 app.include_router(validacion.router)
 app.include_router(login.router)
 app.include_router(servicio_feedback.router)
+app.include_router(servicios_premium.router)
 app.include_router(whatsapp_router)
 
 # Panel admin del Add-on "Servicio de Feedback" (sqladmin), montado en /admin.

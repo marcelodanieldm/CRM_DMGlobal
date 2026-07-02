@@ -253,6 +253,217 @@
           <!-- Divisor -->
           <div class="border-t border-gray-100"></div>
 
+          <!-- ══ SECCIÓN 2.5: Servicios Premium ══════════════════════ -->
+          <div id="section-premium" class="px-4 sm:px-8 py-4 sm:py-6">
+
+            <div class="mb-5">
+              <h2 class="text-sm font-semibold text-gray-900">Servicios Premium · Configuración técnica</h2>
+              <p class="text-xs text-gray-400 font-light mt-0.5">
+                Parámetros requeridos para la operación autónoma de cada add-on
+              </p>
+            </div>
+
+            <!-- Grid de tarjetas (2 columnas en desktop, apiladas en mobile) -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+              <!-- ── Tarjeta: Servicio de Feedback ───────────────────────── -->
+              <div class="border border-gray-200 rounded-xl overflow-hidden">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+                  <div class="flex items-center gap-2.5">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600 shrink-0">
+                      <svg class="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                      </svg>
+                    </span>
+                    <div>
+                      <p class="text-xs font-semibold text-gray-900">Servicio de Feedback</p>
+                      <p class="text-[10px] text-gray-400">Reseñas automáticas · Google Reviews</p>
+                    </div>
+                  </div>
+                  <span id="badge-feedback" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Sin configurar</span>
+                </div>
+
+                <!-- Campos -->
+                <div class="px-5 py-4 space-y-3.5">
+
+                  <!-- Tipo de negocio -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      Tipo de negocio
+                      <span class="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <select id="fb-tipo-negocio"
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                      <option value="HOTEL">🏨 Alojamiento / Hotel</option>
+                      <option value="TOUR">🌿 Excursiones / Tour Operador</option>
+                      <option value="TRANSFER">🚐 Traslados / Transfer</option>
+                      <option value="ALQUILER">🚗 Alquiler de Vehículos</option>
+                      <option value="RESTO">🍽️ Restaurante / Gastronomía</option>
+                    </select>
+                  </div>
+
+                  <!-- Google Review Link -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      Link de Google Reviews
+                      <span class="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <input id="fb-review-link" type="url"
+                      placeholder="https://g.page/r/tu-negocio/review"
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      Obtener desde Google Maps → tu negocio → "Escribir una reseña" → copiar URL
+                    </p>
+                  </div>
+
+                  <!-- Google Sheet URL (opcional) -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      URL Google Sheet asignada
+                      <span class="text-gray-300 ml-0.5 font-light">(opcional)</span>
+                    </label>
+                    <input id="fb-sheet-url" type="url"
+                      placeholder="https://docs.google.com/spreadsheets/d/..."
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      Se genera automáticamente al activar si Drive está configurado
+                    </p>
+                  </div>
+
+                  <!-- Estado activo -->
+                  <div class="flex items-center gap-2.5 pt-0.5">
+                    <input id="fb-activo" type="checkbox" checked
+                      class="w-3.5 h-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                    <label for="fb-activo" class="text-xs text-gray-600 cursor-pointer">Servicio activo</label>
+                  </div>
+
+                  <!-- Acción -->
+                  <div class="pt-1">
+                    <button id="btn-guardar-feedback"
+                      class="w-full py-2 text-xs font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                      Guardar configuración
+                    </button>
+                    <p id="feedback-msg" class="hidden text-xs text-center mt-2"></p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ── Tarjeta: Recepcionista Virtual ──────────────────────── -->
+              <div class="border border-gray-200 rounded-xl overflow-hidden">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-gray-200">
+                  <div class="flex items-center gap-2.5">
+                    <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-600 shrink-0">
+                      <svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                      </svg>
+                    </span>
+                    <div>
+                      <p class="text-xs font-semibold text-gray-900">Recepcionista Virtual</p>
+                      <p class="text-[10px] text-gray-400">WhatsApp 24/7 · Gemini Flash · Google Sheets</p>
+                    </div>
+                  </div>
+                  <span id="badge-recepcionista" class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-400">Sin configurar</span>
+                </div>
+
+                <!-- Campos -->
+                <div class="px-5 py-4 space-y-3.5">
+
+                  <!-- Hotel ID -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      ID del Hotel (CRM)
+                      <span class="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <input id="rec-hotel-id" type="text"
+                      placeholder="HOTEL-TERRAZAS-01"
+                      class="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition uppercase" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      Formato: TIPO-NOMBRE-NN · Ej: HOTEL-TERRAZAS-01 · TOUR-ANDES-02
+                    </p>
+                  </div>
+
+                  <!-- WhatsApp Phone Number ID -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      WhatsApp Phone Number ID
+                      <span class="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <input id="rec-wa-phone-id" type="text"
+                      placeholder="123456789012345"
+                      class="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      Meta for Developers → App → WhatsApp → API Setup → Phone Number ID
+                    </p>
+                  </div>
+
+                  <!-- Google Sheets ID -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      Google Sheets ID
+                      <span class="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <input id="rec-sheets-id" type="text"
+                      placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+                      class="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      URL: docs.google.com/spreadsheets/d/<strong class="text-gray-500">{ID}</strong>/edit
+                    </p>
+                  </div>
+
+                  <!-- Google Drive File ID -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      Google Drive File ID (PDF reglas)
+                      <span class="text-red-400 ml-0.5">*</span>
+                    </label>
+                    <input id="rec-drive-id" type="text"
+                      placeholder="1aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
+                      class="w-full px-3 py-2 text-sm font-mono border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      URL: drive.google.com/file/d/<strong class="text-gray-500">{ID}</strong>/view
+                    </p>
+                  </div>
+
+                  <!-- Pre-Checkin Form URL -->
+                  <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">
+                      URL formulario Pre-Check-in
+                      <span class="text-gray-300 ml-0.5 font-light">(opcional)</span>
+                    </label>
+                    <input id="rec-precheckin-url" type="url"
+                      placeholder="https://tu-crm.com/precheckin/"
+                      class="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 transition" />
+                    <p class="text-[10px] text-gray-400 mt-1">
+                      El bot enviará este enlace al huésped para que suba su DNI/Pasaporte
+                    </p>
+                  </div>
+
+                  <!-- Estado activo -->
+                  <div class="flex items-center gap-2.5 pt-0.5">
+                    <input id="rec-activo" type="checkbox" checked
+                      class="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer" />
+                    <label for="rec-activo" class="text-xs text-gray-600 cursor-pointer">Servicio activo</label>
+                  </div>
+
+                  <!-- Acción -->
+                  <div class="pt-1">
+                    <button id="btn-guardar-recepcionista"
+                      class="w-full py-2 text-xs font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                      Guardar configuración
+                    </button>
+                    <p id="recepcionista-msg" class="hidden text-xs text-center mt-2"></p>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /grid -->
+          </div><!-- /section-premium -->
+
+          <!-- Divisor -->
+          <div class="border-t border-gray-100"></div>
+
           <!-- ══ SECCIÓN 3: Historial de Auditoría ════════════════ -->
           <details id="section-auditoria" class="group">
             <summary class="flex items-center justify-between px-4 sm:px-8 py-5 cursor-pointer select-none hover:bg-gray-50/60 transition-colors">

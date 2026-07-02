@@ -780,4 +780,200 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
   });
+
+  // ── Sección de Servicios Premium ─────────────────────────────────────────
+  cargarServiciosPremium(clienteId);
+
+  document.getElementById('btn-guardar-feedback').addEventListener('click', () => {
+    guardarFeedbackConfig(clienteId);
+  });
+
+  document.getElementById('btn-guardar-recepcionista').addEventListener('click', () => {
+    guardarRecepcionistaConfig(clienteId);
+  });
+
+  // Solo admins pueden guardar configuraciones premium
+  if (usuarioActual.role !== 'admin') {
+    document.getElementById('btn-guardar-feedback').disabled = true;
+    document.getElementById('btn-guardar-recepcionista').disabled = true;
+  }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVICIOS PREMIUM — carga y guardado
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Carga la configuración de ambos servicios premium del cliente y rellena los inputs.
+ * @param {number} clienteId
+ */
+async function cargarServiciosPremium(clienteId) {
+  const token = localStorage.getItem('dmglobal_token');
+  try {
+    const res = await fetch(
+      `${CONFIG.API_BASE_URL}/clientes/${clienteId}/servicios-premium`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // ── Feedback ────────────────────────────────────────────────────────────
+    if (data.feedback) {
+      const fb = data.feedback;
+      document.getElementById('fb-tipo-negocio').value = fb.tipo_negocio || 'HOTEL';
+      document.getElementById('fb-review-link').value  = fb.google_review_link || '';
+      document.getElementById('fb-sheet-url').value    = fb.google_sheet_url   || '';
+      document.getElementById('fb-activo').checked     = fb.activo;
+      actualizarBadge('badge-feedback', true, fb.google_review_link);
+    }
+
+    // ── Recepcionista ───────────────────────────────────────────────────────
+    if (data.recepcionista) {
+      const rec = data.recepcionista;
+      document.getElementById('rec-hotel-id').value       = rec.hotel_id                 || '';
+      document.getElementById('rec-wa-phone-id').value    = rec.whatsapp_phone_number_id || '';
+      document.getElementById('rec-sheets-id').value      = rec.google_sheets_id         || '';
+      document.getElementById('rec-drive-id').value       = rec.google_drive_file_id     || '';
+      document.getElementById('rec-precheckin-url').value = rec.precheckin_form_url      || '';
+      document.getElementById('rec-activo').checked       = rec.activo;
+      const operativo = !!(rec.hotel_id && rec.whatsapp_phone_number_id && rec.google_sheets_id && rec.google_drive_file_id);
+      actualizarBadge('badge-recepcionista', true, operativo);
+    }
+  } catch (_) {
+    // Si la API no responde, los inputs quedan vacíos (modo desarrollo)
+  }
+}
+
+/**
+ * Actualiza el badge de estado de una tarjeta premium.
+ * @param {string} badgeId   — ID del elemento span del badge
+ * @param {boolean} existe   — si ya hay configuración guardada
+ * @param {string|boolean} completo — campo clave para considerar "operativo"
+ */
+function actualizarBadge(badgeId, existe, completo) {
+  const badge = document.getElementById(badgeId);
+  if (!badge) return;
+  if (!existe) {
+    badge.textContent = 'Sin configurar';
+    badge.className   = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-400';
+    return;
+  }
+  if (completo) {
+    badge.textContent = 'Operativo';
+    badge.className   = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700';
+  } else {
+    badge.textContent = 'Incompleto';
+    badge.className   = 'text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700';
+  }
+}
+
+/**
+ * Muestra un mensaje de resultado debajo del botón de guardado.
+ * @param {string} msgId   — ID del <p> de mensaje
+ * @param {boolean} ok     — true = éxito, false = error
+ * @param {string} texto   — texto a mostrar
+ */
+function mostrarMsgPremium(msgId, ok, texto) {
+  const el = document.getElementById(msgId);
+  if (!el) return;
+  el.textContent = texto;
+  el.className   = `text-xs text-center mt-2 ${ok ? 'text-green-600' : 'text-red-500'}`;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 4000);
+}
+
+/**
+ * Guarda (upsert) la configuración del Servicio de Feedback para el cliente.
+ * @param {number} clienteId
+ */
+async function guardarFeedbackConfig(clienteId) {
+  const btn   = document.getElementById('btn-guardar-feedback');
+  const token = localStorage.getItem('dmglobal_token');
+
+  btn.disabled    = true;
+  btn.textContent = 'Guardando...';
+
+  const payload = {
+    tipo_negocio:       document.getElementById('fb-tipo-negocio').value,
+    google_review_link: document.getElementById('fb-review-link').value.trim() || null,
+    google_sheet_url:   document.getElementById('fb-sheet-url').value.trim()   || null,
+    activo:             document.getElementById('fb-activo').checked,
+  };
+
+  try {
+    const res = await fetch(
+      `${CONFIG.API_BASE_URL}/clientes/${clienteId}/feedback-config`,
+      {
+        method:  'PUT',
+        headers: {
+          Authorization:  `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (res.ok) {
+      mostrarMsgPremium('feedback-msg', true, 'Configuracion guardada correctamente');
+      actualizarBadge('badge-feedback', true, payload.google_review_link);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      mostrarMsgPremium('feedback-msg', false, err.detail || 'Error al guardar');
+    }
+  } catch (_) {
+    mostrarMsgPremium('feedback-msg', false, 'Sin conexion con el servidor');
+  } finally {
+    btn.disabled    = (usuarioActual.role !== 'admin');
+    btn.textContent = 'Guardar configuracion';
+  }
+}
+
+/**
+ * Guarda (upsert) la configuración del Recepcionista Virtual para el cliente.
+ * @param {number} clienteId
+ */
+async function guardarRecepcionistaConfig(clienteId) {
+  const btn   = document.getElementById('btn-guardar-recepcionista');
+  const token = localStorage.getItem('dmglobal_token');
+
+  btn.disabled    = true;
+  btn.textContent = 'Guardando...';
+
+  const payload = {
+    hotel_id:                 document.getElementById('rec-hotel-id').value.trim().toUpperCase() || null,
+    whatsapp_phone_number_id: document.getElementById('rec-wa-phone-id').value.trim()             || null,
+    google_sheets_id:         document.getElementById('rec-sheets-id').value.trim()               || null,
+    google_drive_file_id:     document.getElementById('rec-drive-id').value.trim()                || null,
+    precheckin_form_url:      document.getElementById('rec-precheckin-url').value.trim()          || null,
+    activo:                   document.getElementById('rec-activo').checked,
+  };
+
+  try {
+    const res = await fetch(
+      `${CONFIG.API_BASE_URL}/clientes/${clienteId}/recepcionista-config`,
+      {
+        method:  'PUT',
+        headers: {
+          Authorization:  `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (res.ok) {
+      mostrarMsgPremium('recepcionista-msg', true, 'Configuracion guardada correctamente');
+      const operativo = !!(payload.hotel_id && payload.whatsapp_phone_number_id &&
+                           payload.google_sheets_id && payload.google_drive_file_id);
+      actualizarBadge('badge-recepcionista', true, operativo);
+    } else {
+      const err = await res.json().catch(() => ({}));
+      mostrarMsgPremium('recepcionista-msg', false, err.detail || 'Error al guardar');
+    }
+  } catch (_) {
+    mostrarMsgPremium('recepcionista-msg', false, 'Sin conexion con el servidor');
+  } finally {
+    btn.disabled    = (usuarioActual.role !== 'admin');
+    btn.textContent = 'Guardar configuracion';
+  }
+}

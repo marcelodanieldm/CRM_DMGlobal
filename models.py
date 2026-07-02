@@ -57,11 +57,132 @@ class Cliente(Base):
     suscripciones: Mapped[list["Suscripcion"]] = relationship(
         back_populates="cliente", cascade="all, delete-orphan"
     )
+    config_feedback: Mapped[Optional["ConfigFeedbackCliente"]] = relationship(
+        "ConfigFeedbackCliente", back_populates="cliente",
+        cascade="all, delete-orphan", uselist=False,
+    )
+    config_recepcionista: Mapped[Optional["ConfigRecepcionistaCliente"]] = relationship(
+        "ConfigRecepcionistaCliente", back_populates="cliente",
+        cascade="all, delete-orphan", uselist=False,
+    )
 
     __table_args__ = (Index("ix_clientes_cuit_cuil", "cuit_cuil"),)
 
     def __repr__(self) -> str:
         return f"<Cliente id={self.id} razon_social={self.razon_social!r}>"
+
+
+# ---------------------------------------------------------------------------
+# Configuración de Servicios Premium vinculados al cliente
+# ---------------------------------------------------------------------------
+
+TipoNegocioFeedback = Enum(
+    "HOTEL", "TOUR", "TRANSFER", "ALQUILER", "RESTO",
+    name="tipo_negocio_feedback"
+)
+
+
+class ConfigFeedbackCliente(Base):
+    """Configuración del Servicio de Feedback para un cliente específico.
+
+    Se completa cuando el operador activa el add-on de Feedback para el cliente.
+    El ``google_review_link`` es el único dato obligatorio para operar;
+    el resto son opcionales para enriquecer la experiencia.
+    """
+    __tablename__ = "config_feedback_clientes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    cliente_id: Mapped[int] = mapped_column(
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    tipo_negocio: Mapped[str] = mapped_column(
+        TipoNegocioFeedback,
+        nullable=False,
+        default="HOTEL",
+        comment="Sector del comercio (HOTEL, TOUR, TRANSFER, ALQUILER, RESTO)",
+    )
+    google_review_link: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        comment="URL directa al perfil de reseñas de Google Maps del cliente",
+    )
+    google_sheet_url: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        comment="URL de la planilla Google Sheets asignada al cliente",
+    )
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    cliente: Mapped["Cliente"] = relationship("Cliente", back_populates="config_feedback")
+
+    def __repr__(self) -> str:
+        return f"<ConfigFeedback cliente_id={self.cliente_id} tipo={self.tipo_negocio}>"
+
+
+class ConfigRecepcionistaCliente(Base):
+    """Configuración del Recepcionista Virtual Nocturno para un cliente.
+
+    Almacena todos los identificadores externos que el módulo ``virtual_receptionist``
+    necesita para operar de forma autónoma en la planilla y WhatsApp de ese cliente.
+    """
+    __tablename__ = "config_recepcionista_clientes"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    cliente_id: Mapped[int] = mapped_column(
+        ForeignKey("clientes.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    hotel_id: Mapped[Optional[str]] = mapped_column(
+        String(60),
+        comment="ID legible del hotel en el CRM (ej: HOTEL-TERRAZAS-01). "
+                "Usado en check_subscription y como ID de licencia en la planilla.",
+    )
+    whatsapp_phone_number_id: Mapped[Optional[str]] = mapped_column(
+        String(80),
+        comment="ID del número de WhatsApp Business en Meta for Developers. "
+                "Aparece en: App → WhatsApp → API Setup → Phone Number ID.",
+    )
+    google_sheets_id: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        comment="ID del Spreadsheet de huéspedes en Google Sheets. "
+                "Está en la URL: docs.google.com/spreadsheets/d/{ID}/edit",
+    )
+    google_drive_file_id: Mapped[Optional[str]] = mapped_column(
+        String(200),
+        comment="ID del PDF de reglas del hotel en Google Drive. "
+                "Está en la URL: drive.google.com/file/d/{ID}/view",
+    )
+    precheckin_form_url: Mapped[Optional[str]] = mapped_column(
+        String(500),
+        comment="URL del formulario web donde el huésped sube su DNI/Pasaporte.",
+    )
+    activo: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    cliente: Mapped["Cliente"] = relationship("Cliente", back_populates="config_recepcionista")
+
+    def __repr__(self) -> str:
+        return f"<ConfigRecepcionista cliente_id={self.cliente_id} hotel={self.hotel_id!r}>"
 
 
 class Servicio(Base):
