@@ -226,6 +226,7 @@ const MOCK_AUDIT = [
 
 // Estado mutable en memoria (simula el estado de la DB)
 let suscripciones = MOCK_SUSCRIPCIONES.map(s => ({ ...s }));
+let monedaVista = 'ARS';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FORMATO
@@ -355,14 +356,22 @@ function renderServicios(lista) {
 }
 
 function buildServicioRow(sub) {
-  const esPrecioCombinado = sub.precio_acordado !== sub.precio_base;
+  const monedaAcordado = sub.moneda ?? 'ARS';
+  const monedaServicio = sub.moneda_servicio ?? 'ARS';
+  const esPrecioCombinado = sub.precio_acordado !== sub.precio_base || monedaAcordado !== monedaServicio;
+  const montoConvertido = MONEDA.convertir(sub.precio_acordado, monedaAcordado, monedaVista);
+  const precioFmt = MONEDA.formatear(montoConvertido, monedaVista);
+  const notaOriginal = monedaVista !== monedaAcordado
+    ? `<br><em class="text-[10px] text-gray-400 not-italic font-light">${MONEDA.formatear(sub.precio_acordado, monedaAcordado)} original</em>`
+    : '';
   const precioHTML = `
     <div>
-      <span class="text-sm text-gray-900">${fmt.currency(sub.precio_acordado)}</span>
+      <span class="text-sm text-gray-900">${precioFmt}</span>
+      ${notaOriginal}
       ${esPrecioCombinado ? `
         <br>
         <em class="text-[10px] text-gray-400 not-italic font-light">
-          Precio combinado · lista: ${fmt.currency(sub.precio_base)}
+          Precio combinado · lista: ${MONEDA.formatear(MONEDA.convertir(sub.precio_base, monedaServicio, monedaVista), monedaVista)}
         </em>
         <em class="text-[10px] text-violet-400 ml-1">★</em>` : ''}
     </div>`;
@@ -552,13 +561,15 @@ function openModal(serviciosDisponibles) {
     opt.value   = s.id;
     opt.dataset.precioBase = s.precio_base;
     opt.dataset.tipo       = s.tipo_ejecucion;
-    opt.textContent = `${s.nombre} — ${fmt.currency(s.precio_base)} / ${s.tipo_ejecucion}`;
+    opt.dataset.moneda     = s.moneda ?? 'ARS';
+    opt.textContent = `${s.nombre} — ${MONEDA.formatear(s.precio_base, s.moneda ?? 'ARS')} / ${s.tipo_ejecucion}`;
     select.appendChild(opt);
   });
 
   document.getElementById('modal-error').classList.add('hidden');
   document.getElementById('modal-precio-acordado').value = '';
   document.getElementById('modal-precio-base-row').classList.add('hidden');
+  MONEDA.poblarSelect(document.getElementById('modal-moneda'), 'ARS');
   document.getElementById('modal-asignar').classList.remove('hidden');
 }
 
@@ -582,6 +593,7 @@ async function confirmarAsignar() {
   const precioBase    = parseFloat(opt.dataset.precioBase);
   const precioRaw     = document.getElementById('modal-precio-acordado').value;
   const precioAcordado = precioRaw ? parseFloat(precioRaw) : null;
+  const monedaSeleccionada = document.getElementById('modal-moneda').value;
   const pasarela      = document.getElementById('modal-pasarela').value;
   const servicio      = MOCK_SERVICIOS_DISPONIBLES.find(s => s.id === servicioId);
 
@@ -604,6 +616,7 @@ async function confirmarAsignar() {
           cliente_id: clienteId,
           servicio_id: servicioId,
           precio_acordado: precioAcordado,
+          moneda: monedaSeleccionada,
           pasarela_pago: pasarela,
         }),
       });
@@ -618,7 +631,9 @@ async function confirmarAsignar() {
       servicio_nombre:         servicio?.nombre ?? 'Nuevo servicio',
       tipo_ejecucion:          servicio?.tipo_ejecucion ?? 'mensual',
       precio_base:             precioBase,
+      moneda_servicio:         servicio?.moneda ?? 'ARS',
       precio_acordado:         precioAcordado ?? precioBase,
+      moneda:                  monedaSeleccionada,
       estado_suscripcion:      'activa',
       pasarela_pago:           pasarela,
       externa_id:              null,
@@ -751,6 +766,16 @@ document.addEventListener('DOMContentLoaded', () => {
     abrirModal(MOCK_SERVICIOS_DISPONIBLES);
   });
 
+  // Selector "Mostrar en" — convierte la columna de precios sin tocar los datos guardados
+  const selectorVista = document.getElementById('selector-moneda-vista');
+  if (selectorVista) {
+    MONEDA.poblarSelect(selectorVista, 'ARS');
+    selectorVista.addEventListener('change', () => {
+      monedaVista = selectorVista.value;
+      renderServicios(suscripciones);
+    });
+  }
+
   // Cerrar modal
   document.getElementById('modal-close-btn').addEventListener('click',  closeModal);
   document.getElementById('modal-cancel-btn').addEventListener('click', closeModal);
@@ -769,8 +794,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const label  = document.getElementById('modal-precio-base-label');
 
     if (precio) {
-      label.textContent = fmt.currency(parseFloat(precio));
+      label.textContent = MONEDA.formatear(parseFloat(precio), opt.dataset.moneda ?? 'ARS');
       row.classList.remove('hidden');
+      document.getElementById('modal-moneda').value = opt.dataset.moneda ?? 'ARS';
     } else {
       row.classList.add('hidden');
     }

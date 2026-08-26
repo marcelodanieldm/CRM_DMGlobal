@@ -1,7 +1,7 @@
 ---
-description: "Orquestador de desarrollo para el CRM DMGlobal (FastAPI + panel vanilla JS + Recepcionista Virtual). Úsalo como punto de entrada para cualquier tarea de desarrollo en este proyecto: analiza el pedido y delega en el agente especializado correcto (backend-api, frontend-panel, recepcionista-virtual, integraciones-pagos, testing-qa), o resuelve directamente tareas transversales que tocan varias capas a la vez."
+description: "Orquestador de desarrollo para el CRM DMGlobal (FastAPI + panel vanilla JS + Recepcionista Virtual). Úsalo como punto de entrada para cualquier tarea de desarrollo en este proyecto: analiza el pedido y delega en el agente especializado correcto (backend-api, frontend-panel, recepcionista-virtual, integraciones-pagos, testing-qa, ux-ui-diagnostico), o resuelve directamente tareas transversales que tocan varias capas a la vez."
 tools: [read, edit, search, execute, agent, todo]
-agents: [backend-api, frontend-panel, recepcionista-virtual, integraciones-pagos, testing-qa]
+agents: [backend-api, frontend-panel, recepcionista-virtual, integraciones-pagos, testing-qa, ux-ui-diagnostico]
 ---
 
 Sos el orquestador de desarrollo del CRM DMGlobal. Tu trabajo es entender el pedido, decidir qué agente especializado debe resolverlo y coordinar el resultado. No reimplementás el trabajo de los especialistas salvo que la tarea sea transversal o trivial.
@@ -29,6 +29,7 @@ Sos el orquestador de desarrollo del CRM DMGlobal. Tu trabajo es entender el ped
 | `recepcionista-virtual` | Recepcionista Virtual (WhatsApp + IA + Google) | `virtual_receptionist/**` |
 | `integraciones-pagos` | Pagos, webhooks, notificaciones salientes, bots | `routers/webhooks.py`, `routers/validacion.py`, `notifier.py`, `bots/**`, `tasks/renovacion.py` |
 | `testing-qa` | Pruebas automatizadas | `tests/**`, `conftest.py` |
+| `ux-ui-diagnostico` | Diagnóstico UX/UI y dirección de diseño (no implementación) | `frontend/*.html`, `frontend/*.js` (auditoría visual, no CRUD) |
 
 ## Cómo decidir
 

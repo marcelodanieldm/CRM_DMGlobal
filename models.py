@@ -31,6 +31,11 @@ EstadoSuscripcion = Enum("activa", "pausada", "desactivada", name="estado_suscri
 PasarelaPago = Enum("mercadopago", "stripe", "manual", name="pasarela_pago")
 RolUsuario = Enum("admin", "soporte", name="rol_usuario")
 
+# Moneda de precios: ARS (peso argentino, moneda de referencia interna),
+# USD (dólar), BRL (real brasileño), EUR (euro). Ver notifier/currency.py
+# para la conversión entre monedas usada por el frontend.
+Moneda = Enum("ARS", "USD", "BRL", "EUR", name="moneda")
+
 
 # ---------------------------------------------------------------------------
 # Modelos
@@ -192,6 +197,10 @@ class Servicio(Base):
     nombre: Mapped[str] = mapped_column(String(255), nullable=False)
     descripcion: Mapped[Optional[str]] = mapped_column(Text)
     precio_base: Mapped[float] = mapped_column(Float, nullable=False)
+    moneda: Mapped[str] = mapped_column(
+        Moneda, nullable=False, default="ARS", server_default="ARS",
+        comment="Moneda en la que se expresa precio_base (ARS/USD/BRL/EUR).",
+    )
     tipo_ejecucion: Mapped[str] = mapped_column(TipoEjecucion, nullable=False)
     tipo_servicio: Mapped[str] = mapped_column(
         TipoServicio, nullable=False, default="servicio_comun", server_default="servicio_comun"
@@ -217,6 +226,10 @@ class Suscripcion(Base):
         ForeignKey("servicios.id", ondelete="RESTRICT"), nullable=False
     )
     precio_acordado: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    moneda: Mapped[str] = mapped_column(
+        Moneda, nullable=False, default="ARS", server_default="ARS",
+        comment="Moneda de precio_acordado (ARS/USD/BRL/EUR). Hereda la del Servicio si no se especifica.",
+    )
     estado_suscripcion: Mapped[str] = mapped_column(
         EstadoSuscripcion, nullable=False, default="activa"
     )
@@ -302,8 +315,11 @@ class AuditLog(Base):
 def _heredar_precio_base(mapper, connection, target: Suscripcion) -> None:
     """
     Si precio_acordado no fue proporcionado, lo toma del precio_base del Servicio.
+    Idem para moneda: si no se especificó una moneda distinta, hereda la del Servicio.
     Requiere que target.servicio ya esté cargado en la sesión (eager load o
     asignación explícita del objeto antes del flush).
     """
     if target.precio_acordado is None and target.servicio is not None:
         target.precio_acordado = target.servicio.precio_base
+    if not target.moneda and target.servicio is not None:
+        target.moneda = target.servicio.moneda

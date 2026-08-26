@@ -11,6 +11,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 EstadoGeneral = Literal["activo", "inactivo"]
 TipoEjecucion = Literal["mensual", "por_ejecucion", "anual"]
 TipoServicio = Literal["automatizacion", "bot", "scraping", "servicio_comun"]
+Moneda = Literal["ARS", "USD", "BRL", "EUR"]
 
 _CUIT_RE = re.compile(r"^\d{10,11}$")
 
@@ -87,6 +88,7 @@ class ServicioBase(BaseModel):
     nombre: str
     descripcion: Optional[str] = None
     precio_base: float
+    moneda: Moneda = "ARS"
     tipo_ejecucion: TipoEjecucion
     tipo_servicio: TipoServicio = "servicio_comun"
     activo: bool = True
@@ -115,6 +117,7 @@ class ServicioUpdate(BaseModel):
     nombre: Optional[str] = None
     descripcion: Optional[str] = None
     precio_base: Optional[float] = None
+    moneda: Optional[Moneda] = None
     tipo_ejecucion: Optional[TipoEjecucion] = None
     tipo_servicio: Optional[TipoServicio] = None
     activo: Optional[bool] = None

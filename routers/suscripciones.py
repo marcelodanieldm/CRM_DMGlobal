@@ -37,6 +37,7 @@ class SuscripcionCreate(BaseModel):
     cliente_id: int
     servicio_id: int
     precio_acordado: Optional[float] = None
+    moneda: Optional[str] = None
     pasarela_pago: str
 
     @field_validator("pasarela_pago")
@@ -44,6 +45,13 @@ class SuscripcionCreate(BaseModel):
     def validar_pasarela(cls, v: str) -> str:
         if v not in {"mercadopago", "stripe", "manual"}:
             raise ValueError("pasarela_pago inválida")
+        return v
+
+    @field_validator("moneda")
+    @classmethod
+    def validar_moneda(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in {"ARS", "USD", "BRL", "EUR"}:
+            raise ValueError("moneda debe ser una de ARS, USD, BRL, EUR")
         return v
 
 
@@ -68,7 +76,9 @@ class SuscripcionRead(BaseModel):
     servicio_nombre: str
     tipo_ejecucion: str
     precio_base: float
+    moneda_servicio: str
     precio_acordado: Optional[float]
+    moneda: str
     estado_suscripcion: str
     pasarela_pago: str
     externa_id: Optional[str]
@@ -85,7 +95,9 @@ class SuscripcionRead(BaseModel):
             servicio_nombre=sub.servicio.nombre,
             tipo_ejecucion=sub.servicio.tipo_ejecucion,
             precio_base=sub.servicio.precio_base,
+            moneda_servicio=sub.servicio.moneda,
             precio_acordado=sub.precio_acordado,
+            moneda=sub.moneda,
             estado_suscripcion=sub.estado_suscripcion,
             pasarela_pago=sub.pasarela_pago,
             externa_id=sub.externa_id,
@@ -134,6 +146,7 @@ def crear_suscripcion(
         cliente_id=payload.cliente_id,
         servicio_id=payload.servicio_id,
         precio_acordado=payload.precio_acordado,
+        moneda=payload.moneda or servicio.moneda,
         pasarela_pago=payload.pasarela_pago,
         estado_suscripcion="activa",
     )

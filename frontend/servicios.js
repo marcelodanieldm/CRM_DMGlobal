@@ -26,6 +26,7 @@ const MODALIDAD_LABELS = {
 
 let servicios = [];
 let editandoId = null;
+let monedaVista = 'ARS';
 
 // ─── Inicialización ───────────────────────────────────────────────────────────
 
@@ -33,8 +34,23 @@ document.addEventListener('DOMContentLoaded', () => {
   inicializarSidebar();
   inicializarPanel();
   inicializarFormulario();
+  inicializarSelectorMoneda();
   cargarServicios();
 });
+
+function inicializarSelectorMoneda() {
+  const formMoneda = document.getElementById('form-moneda');
+  if (formMoneda) MONEDA.poblarSelect(formMoneda, 'ARS');
+
+  const selectorVista = document.getElementById('selector-moneda-vista');
+  if (selectorVista) {
+    MONEDA.poblarSelect(selectorVista, 'ARS');
+    selectorVista.addEventListener('change', () => {
+      monedaVista = selectorVista.value;
+      renderizarTabla();
+    });
+  }
+}
 
 // ─── Sidebar y sesión ─────────────────────────────────────────────────────────
 
@@ -112,15 +128,17 @@ function renderizarTabla() {
     return;
   }
 
-  const fmt = new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', minimumFractionDigits: 0,
-  });
-
   tbody.innerHTML = servicios.map(s => {
     const tipoCss   = TIPO_BADGE[s.tipo_servicio]   ?? 'bg-gray-100 text-gray-600';
     const tipoLabel = TIPO_LABELS[s.tipo_servicio]  ?? s.tipo_servicio;
     const modalidad = MODALIDAD_LABELS[s.tipo_ejecucion] ?? s.tipo_ejecucion;
-    const precio    = fmt.format(s.precio_base);
+    const monedaOrigen = s.moneda ?? 'ARS';
+    const montoConvertido = MONEDA.convertir(s.precio_base, monedaOrigen, monedaVista);
+    const precio = MONEDA.formatear(montoConvertido, monedaVista);
+    const precioHTML = monedaVista === monedaOrigen
+      ? `<span class="tabular-nums">${precio}</span>`
+      : `<span class="tabular-nums">${precio}</span>
+         <span class="block text-[10px] text-gray-400 font-normal">${MONEDA.formatear(s.precio_base, monedaOrigen)} original</span>`;
 
     const estadoBadge = s.activo
       ? `<span class="inline-flex items-center gap-1 text-xs text-green-700 bg-green-50 px-2 py-0.5 rounded-full font-medium">Activo</span>`
@@ -154,7 +172,7 @@ function renderizarTabla() {
           </span>
         </td>
         <td class="px-4 py-3.5 text-sm text-gray-600">${modalidad}</td>
-        <td class="px-4 py-3.5 text-sm text-gray-900 tabular-nums font-medium">${precio}</td>
+        <td class="px-4 py-3.5 text-sm text-gray-900 font-medium">${precioHTML}</td>
         <td class="px-4 py-3.5">${estadoBadge}</td>
         <td class="px-4 py-3.5">
           <div class="flex items-center justify-end gap-1.5">${accionesAdmin}</div>
@@ -203,6 +221,7 @@ function abrirPanelEditar(s) {
   document.getElementById('form-nombre').value        = s.nombre;
   document.getElementById('form-descripcion').value   = s.descripcion ?? '';
   document.getElementById('form-precio_base').value   = s.precio_base;
+  document.getElementById('form-moneda').value        = s.moneda ?? 'ARS';
   document.getElementById('form-tipo_ejecucion').value = s.tipo_ejecucion;
   document.getElementById('form-tipo_servicio').value  = s.tipo_servicio;
   document.getElementById('form-activo').checked      = s.activo;
@@ -258,6 +277,7 @@ async function enviarFormulario() {
     nombre,
     descripcion:    document.getElementById('form-descripcion').value.trim() || null,
     precio_base:    precio,
+    moneda:         document.getElementById('form-moneda').value,
     tipo_ejecucion: document.getElementById('form-tipo_ejecucion').value,
     tipo_servicio:  document.getElementById('form-tipo_servicio').value,
     activo:         document.getElementById('form-activo').checked,
