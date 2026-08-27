@@ -145,6 +145,7 @@ def crear_suscripcion(
     sub = Suscripcion(
         cliente_id=payload.cliente_id,
         servicio_id=payload.servicio_id,
+        servicio=servicio,  # necesario para que _heredar_precio_base (models.py) pueda leer el precio/moneda base
         precio_acordado=payload.precio_acordado,
         moneda=payload.moneda or servicio.moneda,
         pasarela_pago=payload.pasarela_pago,

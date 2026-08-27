@@ -10,6 +10,11 @@ import os
 # Core CRM
 os.environ.setdefault("DATABASE_URL",  "sqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-only-for-pytest")
+os.environ.setdefault("BOT_API_KEY",    "test-bot-api-key-pytest")
+
+# Webhooks de pasarelas de pago (routers/webhooks.py, leídas al importar el módulo)
+os.environ.setdefault("MP_WEBHOOK_SECRET",     "test-mp-webhook-secret")
+os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "test-stripe-webhook-secret")
 
 # Virtual Receptionist (required by pydantic-settings at import time)
 os.environ.setdefault("GEMINI_API_KEY",          "test-gemini-key-pytest")
@@ -19,7 +24,7 @@ os.environ.setdefault("CRM_DM_GLOBAL_API_URL",   "http://localhost:9999")
 os.environ.setdefault("GOOGLE_SHEETS_ID",         "test-sheets-id")
 os.environ.setdefault("PRECHECKIN_FORM_URL",      "https://test.crm.com/precheckin/")
 
-from typing import Iterator
+from typing import Iterator, Optional
 
 import pytest
 from fastapi.testclient import TestClient
@@ -27,10 +32,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from auth import crear_token, hash_password
 from database import get_db
 from feedback_models import Organizacion, ServicioFeedbackConfig
 from main import app
-from models import Base
+from models import Base, Usuario
 
 
 @pytest.fixture()
@@ -104,3 +110,52 @@ def crear_config(db_session: Session):
         return config
 
     return _crear
+
+
+@pytest.fixture()
+def crear_usuario(db_session: Session):
+    """Factory: crea un Usuario interno con contraseña hasheada.
+
+    Uso: crear_usuario(username="ana", rol="admin", password="Clave1234") -> Usuario
+    """
+
+    def _crear(
+        username: str = "usuario_test",
+        email: Optional[str] = None,
+        password: str = "ClaveSegura1",
+        rol: str = "soporte",
+        activo: bool = True,
+    ) -> Usuario:
+        usuario = Usuario(
+            username=username,
+            email=email or f"{username}@test.com",
+            hashed_password=hash_password(password),
+            rol=rol,
+            activo=activo,
+        )
+        db_session.add(usuario)
+        db_session.commit()
+        db_session.refresh(usuario)
+        return usuario
+
+    return _crear
+
+
+def auth_headers(usuario: Usuario) -> dict:
+    """Genera cabeceras Authorization: Bearer <jwt> para un Usuario dado."""
+    token = crear_token(username=usuario.username, rol=usuario.rol)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture()
+def admin_headers(crear_usuario):
+    """Cabeceras de autenticación listas para un usuario con rol 'admin'."""
+    usuario = crear_usuario(username="admin_test", rol="admin")
+    return auth_headers(usuario)
+
+
+@pytest.fixture()
+def soporte_headers(crear_usuario):
+    """Cabeceras de autenticación listas para un usuario con rol 'soporte'."""
+    usuario = crear_usuario(username="soporte_test", rol="soporte")
+    return auth_headers(usuario)
